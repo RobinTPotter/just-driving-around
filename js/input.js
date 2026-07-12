@@ -5,11 +5,11 @@ export class Input {
     this.throttle = false;
     this.brake = false;
 
-    document.onkeydown = function (e) {
-     // console.log(e);
+    document.onkeydown = (e) => {
+      // console.log(e);
       if (e.code == "ArrowLeft") {
         this.left = true;
-        console.log("hi");
+       // console.log("hi");
       } else if (e.code == "ArrowRight") {
         this.right = true;
       } else if (e.code == "KeyA") {
@@ -19,11 +19,11 @@ export class Input {
       }
     };
 
-    document.onkeyup = function (e) {
-     //  console.log(e);
+    document.onkeyup = (e) => {
+      //  console.log(e);
       if (e.code == "ArrowLeft") {
         this.left = false;
-        console.log("left");
+       // console.log("left");
       } else if (e.code == "ArrowRight") {
         this.right = false;
       } else if (e.code == "KeyA") {

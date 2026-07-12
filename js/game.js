@@ -15,7 +15,7 @@ export class Game {
     this.loop();
   }
   loop(timestamp) {
-    if (this.lastTimestamp === undefined) {
+    if (this.lastTimestamp === null) {
       this.lastTimestamp = timestamp;
     }
 
