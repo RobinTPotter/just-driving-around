@@ -19,5 +19,7 @@ export class Car {
     }
     if (this.steering<0.001 && this.steering>-0.001) this.steering=0;
     console.log(this.steering, input.left, input.right);
+    this.velocity = 1;
+    this.x += this.velocity*dt;
   }
 }
