@@ -4,6 +4,8 @@ export class Game {
   constructor() {}
   start() {
     console.log("Game start");
+this.renderer = new Renderer();
+
 this.lastTimestamp = null;
     this.loop();
   }
@@ -23,7 +25,7 @@ if (this.lastTimestamp === undefined) {
 }
   update(dt) {
 
-
+this.renderer.render();
 
   }
 }
