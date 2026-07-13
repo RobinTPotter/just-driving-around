@@ -4,6 +4,7 @@ export class Car {
     this.y = 0;
     this.z = 0;
     this.velocity = 0;
+    this.forward = {"x":0, "y":0};
     this.throttle = 0;
     this.T = 0.5;  //throttle max
     this.D = 0.99; // drag
@@ -29,7 +30,7 @@ export class Car {
 
 
 
-    console.log(this.steering, input.left, input.right, input.throttle, this);
+   // console.log(this.steering, input.left, input.right, input.throttle, this);
 
 
 
@@ -40,9 +41,11 @@ export class Car {
 
     let K = 0.1
     this.heading -= this.steering * this.velocity * dt * K;
+    this.forward.x = Math.sin(this.heading);
+    this.forward.z = Math.cos(this.heading);
     this.x += Math.sin(this.heading) * this.velocity * dt;
     this.z += Math.cos(this.heading) * this.velocity * dt;
 
-    console.log("car x: ", dt, this.velocity,  this.x)
+  //  console.log("car x: ", dt, this.velocity,  this.x)
   }
 }
