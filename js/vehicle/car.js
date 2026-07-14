@@ -9,7 +9,7 @@ export class Car {
     this.T = 0.5;  //throttle max
     this.D = 0.99; // drag
     this.steering = 0;
-    this.heading = 0;
+    this.heading = Math.PI/2.0;
     this.steeringMax = 4;
     this.steeringSpeed = 3.5;
     this.steeringRest = 0.8; //drag for steering

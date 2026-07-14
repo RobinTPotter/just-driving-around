@@ -3,10 +3,10 @@ import * as THREE from "https://unpkg.com/three@0.181.1/build/three.module.js";
 console.log(THREE);
 
 export class Renderer {
-  constructor(w,h, buildings, road) {
+  constructor(w,h, buildings, road, roadEnded) {
     this.scene = new THREE.Scene();
     this.camera = new THREE.PerspectiveCamera(55, w/h , 0.1, 1000);
-    this.cam = "windscreen";
+    this.cam = "top";
     const canvas = document.querySelector("#c");
     this.renderer = new THREE.WebGLRenderer({ antialias: true, canvas });
 
@@ -27,14 +27,74 @@ console.log(buildings);
     for (let b=0;b<buildings.length;b++) {
 console.log(buildings[b]);
      const buildingBox = new THREE.BoxGeometry(buildings[b].width, buildings[b].height, buildings[b].depth);
-      const buildingMaterial = new THREE.MeshBasicMaterial({
-      color: 0xff4400,
-    });     
+      const buildingMaterial = new THREE.MeshBasicMaterial({ color: 0xff4400, });     
     const building = new THREE.Mesh(buildingBox, buildingMaterial);
     building.position.set(buildings[b].x,buildings[b].y,buildings[b].z);
+    building.rotation.y = buildings[b].angle;
 
 this.scene.add(building);
     }
+
+  
+for (let nn=0; nn<road.length; nn++) {
+    console.log(nn);
+    let r = road[nn];
+    let rn = road[(nn+1) % (road.length)];
+    let diff = {
+        "x": rn.position.x-r.position.x,
+        "y": rn.position.y-r.position.y,
+        "z": rn.position.z-r.position.z
+    }
+    let mag = Math.sqrt(diff.x*diff.x +
+        diff.y*diff.y +
+        diff.z*diff.z);
+    if (mag>0) r.direction = {"x": diff.x/mag, "y": diff.y/mag, "z": diff.z/mag };
+    else r.direction = null;
+    console.log(r, rn, diff, mag);
+}
+
+const roadGeometry = new THREE.BufferGeometry();
+const vertices = [];
+
+for (let nn=0; nn<road.length; nn++) {
+    console.log(nn);
+    let r = road[nn];
+    let rn = road[(nn+1) % (road.length)];
+
+    let t1 = {"x": r.position.x-r.direction.z*r.width/2, "y": r.position.y, "z": r.position.z+r.direction.x*r.width/2};
+    let t2 = {"x": rn.position.x-rn.direction.z*rn.width/2, "y": rn.position.y, "z": rn.position.z+rn.direction.x*rn.width/2 };
+    let t3 = {"x": r.position.x+r.direction.z*r.width/2, "y": r.position.y, "z": r.position.z- r.direction.x*r.width/2 };
+
+    let t4 = {"x": r.position.x+r.direction.z*r.width/2, "y": r.position.y, "z": r.position.z- r.direction.x*r.width/2 };
+    let t5 = {"x": rn.position.x-rn.direction.z*rn.width/2, "y":  rn.position.y, "z":  rn.position.z+rn.direction.x*rn.width/2 };
+    let t6 = {"x": rn.position.x+rn.direction.z*rn.width/2, "y": rn.position.y, "z": rn.position.z-rn.direction.x*rn.width/2 };
+
+    console.log(t1,t2,t3);
+    console.log(t4, t5, t6);
+
+    vertices.push(
+     t1.x, t1.y, t1.z,
+     t2.x, t2.y, t2.z,
+     t3.x, t3.y, t3.z,
+     t4.x, t4.y, t4.z,
+     t5.x, t5.y, t5.z,
+     t6.x, t6.y, t6.z,
+     )
+
+    if (!roadEnded && nn==road.length-2) { console.log("no more"); break};
+}
+
+
+ roadGeometry.setAttribute(
+ 'position', new THREE.Float32BufferAttribute( vertices, 3 ) 
+);
+
+const roadMaterial = new THREE.MeshBasicMaterial( { color: 0x555555 } );
+
+const roadMesh = new THREE.Mesh( roadGeometry, roadMaterial );
+
+
+    this.scene.add(roadMesh);
 
 
     const axisHelper = new THREE.AxesHelper(5);
