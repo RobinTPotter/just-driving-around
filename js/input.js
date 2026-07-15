@@ -9,7 +9,7 @@ export class Input {
       // console.log(e);
       if (e.code == "ArrowLeft") {
         this.left = true;
-       // console.log("hi");
+        // console.log("hi");
       } else if (e.code == "ArrowRight") {
         this.right = true;
       } else if (e.code == "KeyA") {
@@ -23,7 +23,7 @@ export class Input {
       //  console.log(e);
       if (e.code == "ArrowLeft") {
         this.left = false;
-       // console.log("left");
+        // console.log("left");
       } else if (e.code == "ArrowRight") {
         this.right = false;
       } else if (e.code == "KeyA") {
@@ -34,5 +34,5 @@ export class Input {
     };
   }
 
-  update() {}
+  update() { }
 }

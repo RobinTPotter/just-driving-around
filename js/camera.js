@@ -1,1 +1,1 @@
-export class CameraController{}
+export class CameraController { }

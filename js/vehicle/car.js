@@ -1,17 +1,15 @@
 export class Car {
   constructor() {
-    this.x = 0;
-    this.y = 0;
-    this.z = 0;
+    this.position = {x: 0, y: 0, z: 0};
     this.velocity = 0;
     this.forward = {"x":0, "y":0};
     this.throttle = 0;
-    this.T = 0.5;  //throttle max
-    this.D = 0.99; // drag
+    this.T = 0.7;  //throttle max
+    this.D = 0.985; // drag
     this.steering = 0;
     this.heading = Math.PI/2.0;
     this.steeringMax = 4;
-    this.steeringSpeed = 3.5;
+    this.steeringSpeed = 1.2;
     this.steeringRest = 0.8; //drag for steering
     this.DZ = 0.001;  // steering dead zone
     this.VDZ = 0.001; //veocity dead zone
@@ -43,8 +41,8 @@ export class Car {
     this.heading -= this.steering * this.velocity * dt * K;
     this.forward.x = Math.sin(this.heading);
     this.forward.z = Math.cos(this.heading);
-    this.x += Math.sin(this.heading) * this.velocity * dt;
-    this.z += Math.cos(this.heading) * this.velocity * dt;
+    this.position.x += Math.sin(this.heading) * this.velocity * dt;
+    this.position.z += Math.cos(this.heading) * this.velocity * dt;
 
   //  console.log("car x: ", dt, this.velocity,  this.x)
   }
