@@ -1,0 +1,98 @@
+<html>
+<head>
+<style>
+</style>
+</head>
+<body>
+<svg id="svg">
+</svg>
+<script>
+
+const svg = document.querySelector("#svg");
+
+svg.style.position = "absolute";
+svg.style.top = 0;
+svg.style.left = 0;
+svg.style.width = document.body.clientWidth-1;
+svg.style.height = document.body.clientHeight-1;
+
+let road = []
+
+    function create(tag, attrs) {
+      const el = document.createElementNS("http://www.w3.org/2000/svg", tag);
+      for (let k in attrs) el.setAttribute(k, attrs[k]);
+      return el;
+    }
+
+    const main = create("g", {"id": "main"})
+
+    svg.appendChild(create("rect", {
+                "x": 0,
+                "y": 0,
+                "width":  document.body.clientWidth,
+                "height":  document.body.clientHeight,
+                "stroke": "rgba(0,0,0,1)",
+                "stroke-width": 2,
+                "stroke-linecap": "round",
+                "fill": "white"
+    }));
+    svg.appendChild(main);
+
+
+
+let status = "normal";
+
+document.body.onmouseup = function(e) { 
+    console.log(status);
+    if (status=="normal") addRoadBit(e.x, e.y);
+
+    status = "normal"; 
+};
+
+
+document.body.onmousedown = function(e) { 
+
+    let candidates = road.filter(function(a) { return !(a.ex<e.x+5 && a.ex>e.x-5 && a.ey<e.y+5 && a.ey>e.y-5)})
+    console.log(e.x, e.y);
+    console.log(candidates);
+    
+};
+
+
+document.body.onmousemove = function(e) { 
+    if (e.buttons>0) status = "dragging"; 
+  // console.log(e);
+};
+
+clear();
+
+function clear() {
+
+
+}
+
+function addRoadBit(ex,ey) {
+
+     x = ex - Math.floor(document.body.clientWidth/2);
+     y = ey - Math.floor(document.body.clientWidth/2);
+
+     road.push({"order": road.length,"position": {"x": x, "y": 0, "z": y}, "ex": ex, "ey": ey, "camber": 0, "strips": [], "width": 5});
+
+     main.appendChild(
+         create("circle", {"cx": ex, "cy": ey, "r": 20})
+     );
+
+     if (road.length>1) {
+        main.appendChild(create("path", {
+                "d":`M${ex} ${ey} L${road[road.length-2].ex} ${road[road.length-2].ey}`, 
+                "stroke": "rgba(0,0,0,1)",
+                "stroke-width": 2,
+                "stroke-linecap": "round"
+        }));
+       // console.log(JSON.stringify(road));
+     }
+
+}
+</script>
+</body>
+</html>

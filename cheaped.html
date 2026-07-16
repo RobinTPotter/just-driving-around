@@ -16,34 +16,44 @@ canvas.width = document.body.clientWidth-1;
 canvas.height = document.body.clientHeight-1;
 
 const ctx = canvas.getContext("2d");
+
+let road = []
+
+document.body.onclick = function(e) { 
+    addRoadBit(e.x, e.y);
+};
+
+clear();
+
+function clear() {
+   
 ctx.fillStyle = "white";
 ctx.lineWidth = 4;
 ctx.strokeStyle="black";
 ctx.rect(0,0,canvas.width,canvas.height,"#110000");
 ctx.fill();
 ctx.stroke();
+ 
+}
 
-let road = []
-
-document.body.onclick = function(e) { 
+function addRoadBit(ex,ey) {
      ctx.beginPath();
      ctx.strokeStyle="black";
-     x = e.x - Math.floor(canvas.width/2);
-     y = e.y - Math.floor(canvas.height/2);
-     road.push({"position": {"x": x, "y": 0, "z": y}, "ex": e.x, "ey": e.y, "camber": 0, "strips": [], "width": 5})
-     ctx.ellipse(e.x,e.y,20,20,0,Math.PI*2,false);
+     x = ex - Math.floor(canvas.width/2);
+     y = ey - Math.floor(canvas.height/2);
+     road.push({"position": {"x": x, "y": 0, "z": y}, "ex": ex, "ey": ey, "camber": 0, "strips": [], "width": 5})
+     ctx.ellipse(ex,ey,20,20,0,Math.PI*2,false);
      ctx.stroke();
      if (road.length>1) {
      ctx.beginPath();
      ctx.strokeStyle="grey";
-     ctx.moveTo(e.x, e.y);
+     ctx.moveTo(ex, ey);
      ctx.lineTo(road[road.length-2].ex, road[road.length-2].ey);
      ctx.stroke();
-	console.log(JSON.stringify(road)         );
+	console.log(JSON.stringify(road));
      }
-};
 
-
+}
 </script>
 </body>
 </html>

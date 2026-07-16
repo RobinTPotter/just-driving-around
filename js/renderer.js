@@ -6,7 +6,7 @@ export class Renderer {
     constructor(w, h, buildings, road, roadLooped) {
         this.scene = new THREE.Scene();
         this.camera = new THREE.PerspectiveCamera(55, w / h, 0.1, 1000);
-        this.cam = "top";
+        this.cameraView = "top";
         const canvas = document.querySelector("#c");
         this.renderer = new THREE.WebGLRenderer({ antialias: true, canvas });
 
@@ -100,6 +100,7 @@ export class Renderer {
         const axisHelper = new THREE.AxesHelper(5);
         this.scene.add(axisHelper);
     }
+    
     render(car, road, buildings) {
 
         this.debugCarMesh.position.x = car.position.x;
@@ -107,7 +108,7 @@ export class Renderer {
         this.debugCarMesh.position.z = car.position.z;
         this.debugCarMesh.rotation.y = car.heading;
 
-        switch (this.cam) {
+        switch (this.cameraView) {
             case "follow":
                 this.camera.position.x = car.position.x - car.forward.x * 10;
                 this.camera.position.y = car.position.y + 5;
@@ -120,10 +121,9 @@ export class Renderer {
                 this.camera.position.z = car.position.z;
                 this.camera.lookAt(car.position.x, 0, car.position.z);
                 break;
-
             case "windscreen":
                 this.camera.position.x = car.position.x + car.forward.x * 5;
-                this.camera.position.y = car.position.y;
+                this.camera.position.y = car.position.y+2;
                 this.camera.position.z = car.position.z + car.forward.z * 5;
                 this.camera.lookAt(car.position.x + car.forward.x * 10, car.position.y, car.position.z + car.forward.z * 10);
                 break;

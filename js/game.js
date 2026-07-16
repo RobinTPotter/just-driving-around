@@ -37,6 +37,8 @@ export class Game {
   update(dt) {
     if (!dt) return;
     this.car.update(dt, this.input);
+    this.renderer.cameraView = this.input.cameraView;
+    console.log(this.input.cameraView);
 
     this.renderer.render(this.car, this.road, this.buildings);
   }
