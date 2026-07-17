@@ -1,98 +1,199 @@
 <html>
 <head>
-<style>
-</style>
+    <style>
+        html,
+        body {
+            margin: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+        }
+
+        #svg {
+            position: absolute;
+            inset: 0;
+        }
+    </style>
 </head>
 <body>
-<svg id="svg">
-</svg>
-<script>
+    <svg id="svg"></svg>
+    <script>
+        const svg = document.querySelector("#svg");
+        const main = create("g", { id: "main" });
 
-const svg = document.querySelector("#svg");
+        let road = [];
+        const HIT_RADIUS = 24;
 
-svg.style.position = "absolute";
-svg.style.top = 0;
-svg.style.left = 0;
-svg.style.width = document.body.clientWidth-1;
-svg.style.height = document.body.clientHeight-1;
+        const dragState = {
+            active: false,
+            moved: false,
+            lastX: 0,
+            lastY: 0,
+            indices: [],
+        };
 
-let road = []
+        function create(tag, attrs) {
+            const el = document.createElementNS("http://www.w3.org/2000/svg", tag);
+            for (const k in attrs) {
+                el.setAttribute(k, attrs[k]);
+            }
+            return el;
+        }
 
-    function create(tag, attrs) {
-      const el = document.createElementNS("http://www.w3.org/2000/svg", tag);
-      for (let k in attrs) el.setAttribute(k, attrs[k]);
-      return el;
-    }
+        function pointToWorld(ex, ey) {
+            const w = document.body.clientWidth;
+            const h = document.body.clientHeight;
 
-    const main = create("g", {"id": "main"})
+            return {
+                x: ex - Math.floor(w / 2),
+                z: ey - Math.floor(h / 2),
+            };
+        }
 
-    svg.appendChild(create("rect", {
-                "x": 0,
-                "y": 0,
-                "width":  document.body.clientWidth,
-                "height":  document.body.clientHeight,
-                "stroke": "rgba(0,0,0,1)",
-                "stroke-width": 2,
-                "stroke-linecap": "round",
-                "fill": "white"
-    }));
-    svg.appendChild(main);
+        function setupSvg() {
+            const w = document.body.clientWidth;
+            const h = document.body.clientHeight;
 
+            svg.setAttribute("width", String(w));
+            svg.setAttribute("height", String(h));
+            svg.setAttribute("viewBox", `0 0 ${w} ${h}`);
 
+            svg.innerHTML = "";
+            svg.appendChild(
+                create("rect", {
+                    x: 0,
+                    y: 0,
+                    width: w,
+                    height: h,
+                    stroke: "rgba(0,0,0,1)",
+                    "stroke-width": 2,
+                    "stroke-linecap": "round",
+                    fill: "white",
+                })
+            );
+            svg.appendChild(main);
+            renderRoad();
+        }
 
-let status = "normal";
+        function addRoadBit(ex, ey) {
+            const world = pointToWorld(ex, ey);
 
-document.body.onmouseup = function(e) { 
-    console.log(status);
-    if (status=="normal") addRoadBit(e.x, e.y);
+            road.push({
+                order: road.length,
+                position: { x: world.x, y: 0, z: world.z },
+                ex,
+                ey,
+                camber: 0,
+                strips: [],
+                width: 5,
+            });
+            navigator.clipboard.writeText(JSON.stringify(road, null, 2));
+            renderRoad();
+        }
 
-    status = "normal"; 
-};
+        function renderRoad() {
+            main.innerHTML = "";
 
+            for (let i = 1; i < road.length; i++) {
+                main.appendChild(
+                    create("path", {
+                        d: `M ${road[i - 1].ex} ${road[i - 1].ey} L ${road[i].ex} ${road[i].ey}`,
+                        stroke: "rgba(0,0,0,1)",
+                        "stroke-width": 2,
+                        "stroke-linecap": "round",
+                        fill: "none",
+                        id: `p${i - 1}-${i}`,
+                    })
+                );
+            }
 
-document.body.onmousedown = function(e) { 
+            for (let i = 0; i < road.length; i++) {
+                main.appendChild(
+                    create("circle", {
+                        cx: road[i].ex,
+                        cy: road[i].ey,
+                        r: 20,
+                        fill: "none",
+                        stroke: "black",
+                        id: `c${i}`,
+                    })
+                );
+            }
+        }
 
-    let candidates = road.filter(function(a) { return !(a.ex<e.x+5 && a.ex>e.x-5 && a.ey<e.y+5 && a.ey>e.y-5)})
-    console.log(e.x, e.y);
-    console.log(candidates);
-    
-};
+        function findCandidates(x, y) {
+            const out = [];
+            const r2 = HIT_RADIUS * HIT_RADIUS;
 
+            for (let i = 0; i < road.length; i++) {
+                const dx = x - road[i].ex;
+                const dy = y - road[i].ey;
 
-document.body.onmousemove = function(e) { 
-    if (e.buttons>0) status = "dragging"; 
-  // console.log(e);
-};
+                if (dx * dx + dy * dy <= r2) {
+                    out.push(i);
+                }
+            }
 
-clear();
+            return out;
+        }
 
-function clear() {
+        document.body.onmousedown = function (e) {
+            const x = e.clientX;
+            const y = e.clientY;
+            const indices = findCandidates(x, y);
 
+            dragState.active = indices.length > 0;
+            dragState.moved = false;
+            dragState.indices = indices;
+            dragState.lastX = x;
+            dragState.lastY = y;
+        };
 
-}
+        document.body.onmousemove = function (e) {
+            if (!dragState.active || e.buttons === 0) {
+                return;
+            }
 
-function addRoadBit(ex,ey) {
+            const x = e.clientX;
+            const y = e.clientY;
+            const dx = x - dragState.lastX;
+            const dy = y - dragState.lastY;
 
-     x = ex - Math.floor(document.body.clientWidth/2);
-     y = ey - Math.floor(document.body.clientWidth/2);
+            if (dx !== 0 || dy !== 0) {
+                dragState.moved = true;
+            }
 
-     road.push({"order": road.length,"position": {"x": x, "y": 0, "z": y}, "ex": ex, "ey": ey, "camber": 0, "strips": [], "width": 5});
+            for (const idx of dragState.indices) {
+                road[idx].ex += dx;
+                road[idx].ey += dy;
 
-     main.appendChild(
-         create("circle", {"cx": ex, "cy": ey, "r": 20})
-     );
+                const world = pointToWorld(road[idx].ex, road[idx].ey);
+                road[idx].position.x = world.x;
+                road[idx].position.z = world.z;
+            }
 
-     if (road.length>1) {
-        main.appendChild(create("path", {
-                "d":`M${ex} ${ey} L${road[road.length-2].ex} ${road[road.length-2].ey}`, 
-                "stroke": "rgba(0,0,0,1)",
-                "stroke-width": 2,
-                "stroke-linecap": "round"
-        }));
-       // console.log(JSON.stringify(road));
-     }
+            dragState.lastX = x;
+            dragState.lastY = y;
 
-}
-</script>
+            renderRoad();
+        };
+
+        document.body.onmouseup = function (e) {
+            const x = e.clientX;
+            const y = e.clientY;
+
+            if (!dragState.active && findCandidates(x, y).length === 0) {
+                addRoadBit(x, y);
+            }
+
+            dragState.active = false;
+            dragState.indices = [];
+            dragState.moved = false;
+        };
+
+        window.addEventListener("resize", setupSvg);
+
+        setupSvg();
+    </script>
 </body>
 </html>
