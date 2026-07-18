@@ -7,7 +7,7 @@ export class Car {
     this.T = 0.7;  //throttle max
     this.D = 0.985; // drag
     this.wheelbase = 2;
-    this.width = 1.5;
+    this.width = 1.8;
     this.steering = 0;
     this.heading = Math.PI/2.0;
     this.steeringMax = 4;
@@ -15,6 +15,7 @@ export class Car {
     this.steeringRest = 0.8; //drag for steering
     this.DZ = 0.001;  // steering dead zone
     this.VDZ = 0.001; //veocity dead zone
+    this.segment = 0; // segment of map the car always starts on 0
   }
   update(dt, input) {
     if (input.left && this.steering > -this.steeringMax)
