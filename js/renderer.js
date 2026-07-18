@@ -3,7 +3,7 @@ import * as THREE from "https://unpkg.com/three@0.181.1/build/three.module.js";
 console.log(THREE);
 
 export class Renderer {
-    constructor(w, h, buildings, road, roadLooped) {
+    constructor(w, h, buildings, road, roadLooped, car) {
         this.scene = new THREE.Scene();
         this.camera = new THREE.PerspectiveCamera(55, w / h, 0.1, 1000);
         this.cameraView = "top";
@@ -14,7 +14,7 @@ export class Renderer {
         this.renderer.setSize(w * 2, h * 2, false);
 
 
-        const debugCar = new THREE.BoxGeometry(1, 0.5, 1.5);
+        const debugCar = new THREE.BoxGeometry(car.width, 0.5, car.wheelbase);
         //const debugCarMaterial = new THREE.MeshPhongMaterial({emissive: 0xFFFF00});
 
         const debugCarMaterial = new THREE.MeshBasicMaterial({

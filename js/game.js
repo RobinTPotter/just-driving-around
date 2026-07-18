@@ -11,12 +11,12 @@ export class Game {
     this.roadLooped = true;
 
     this.buildings = [{ "x": 20, "y": 5, "z": 20, "width": 5, "height": 10, "depth": 15, "angle": 0.1 }];
-    this.renderer = new Renderer(300, 150, this.buildings, this.road, this.roadLooped);
     this.input = new Input();
     this.car = new Car();
     this.car.position = this.road[0].position;
     this.car.heading = Math.atan2(this.road[1].position.x - this.road[0].position.x, this.road[1].position.z - this.road[0].position.z);
     console.log("car heading: ", this.car.heading); 
+    this.renderer = new Renderer(300, 150, this.buildings, this.road, this.roadLooped, this.car);
     this.lastTimestamp = null;
     this.loop(0);
   }

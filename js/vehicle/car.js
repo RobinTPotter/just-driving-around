@@ -6,6 +6,8 @@ export class Car {
     this.throttle = 0;
     this.T = 0.7;  //throttle max
     this.D = 0.985; // drag
+    this.wheelbase = 2;
+    this.width = 1.5;
     this.steering = 0;
     this.heading = Math.PI/2.0;
     this.steeringMax = 4;
