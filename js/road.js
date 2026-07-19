@@ -93,7 +93,7 @@ export class Road {
             let rn = this.data.nodes[(segment + 1) % (this.data.nodes.length)];
             let A = this.vector_anglebetween({x:r.position.x , y:r.position.z} , {x:rn.position.x , y:rn.position.z });
             let b = Math.sqrt(   
-(r.position.x - x)*(r.position.x - x)   +  (r.position.x - z)*(r.position.x - z)  
+(r.position.x - x)*(r.position.x - x)   +  (r.position.z - z)*(r.position.z - z)  
             );
             let d = b*Math.sin(A);
             console.log(`distance: ${d}`);

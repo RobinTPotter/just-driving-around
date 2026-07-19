@@ -2,7 +2,7 @@ export class Car {
   constructor() {
     this.position = {x: 0, y: 0, z: 0};
     this.velocity = 0;
-    this.forward = {"x":0, "y":0};
+    this.forward = {"x":0, "y":0, "z": 0};
     this.throttle = 0;
     this.T = 0.7;  //throttle max
     this.D = 0.985; // drag
