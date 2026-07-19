@@ -59,31 +59,9 @@ export class Road {
 
     }  
 
-
- vector_angle(v) {
-	if (v.y==0) {
-		if (v.x>0) return 0; else return Math.PI;
-	} else if (v.x==0) {
-		if (v.y>0) return Math.PI/2; else return 3*Math.PI/2;
-	} else {
-		var ang=Math.abs(Math.atan(v.y/v.x));
-		if (v.x>0 & v.y>0) return ang;
-		else if (v.x>0 & v.y<0) return 2*Math.PI-ang;
-		else if (v.x<0 & v.y>0) return Math.PI-ang;
-		else if (v.x<0 & v.y<0) return Math.PI+ang;
-	}
-}
-
- vector_anglebetween(v1,v2) {
-	var an1=this.vector_angle(v1);
-	var an2=this.vector_angle(v2);
-	var diff=0;
-	if (an1>an2) diff=Math.abs(an1-an2); else diff=Math.abs(an2-an1);
-	if (diff>Math.PI) diff=2*Math.PI-diff;
-	return diff;
-}
-
-
+    static dot(v1,v2) {
+return v1.x*v2.x + v1.y*v2.y + v1.z*v2.z;
+    }
 
     query(segment,x,z) {
         if (segment==null) {
@@ -91,12 +69,14 @@ export class Road {
         } else {
             let r = this.data.nodes[segment];
             let rn = this.data.nodes[(segment + 1) % (this.data.nodes.length)];
-            let A = this.vector_anglebetween({x:r.position.x , y:r.position.z} , {x:rn.position.x , y:rn.position.z });
-            let b = Math.sqrt(   
-(r.position.x - x)*(r.position.x - x)   +  (r.position.z - z)*(r.position.z - z)  
-            );
-            let d = b*Math.sin(A);
-            console.log(`distance: ${d}`);
+       rP =  {"x": x - r.direction.x, 
+              "y": 0 - r.direction.y, 
+              "z": z - r.direction.z}
+right = {"x": r.direction.z, "y": r.direction.y, "z": -r.direction.x};
+along = dot(rP, r.direction);
+offset = dot(rP, right);
+
+            console.log(`along: ${along}, offset ${offset}`);
         }
         
 
