@@ -65,9 +65,9 @@ export class Renderer {
 
         switch (this.cameraView) {
             case "follow":
-                this.camera.position.x = car.position.x - car.forward.x * 10;
-                this.camera.position.y = car.position.y + 5;
-                this.camera.position.z = car.position.z - car.forward.z * 10;
+                this.camera.position.x = car.position.x - car.forward.x * 5;
+                this.camera.position.y = car.position.y + 2;
+                this.camera.position.z = car.position.z - car.forward.z * 5;
                 this.camera.lookAt(car.position.x, car.position.y, car.position.z);
                 break;
             case "top":

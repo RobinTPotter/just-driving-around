@@ -9,7 +9,7 @@ export class Game {
   async start() {
     console.log("Game start");
 
-    let md = await RoadLoader.load("./mapdata/test.js");
+    let md = await RoadLoader.load("./mapdata/test.json");
     this.road = new Road(md);
     this.input = new Input();
 
@@ -42,9 +42,10 @@ export class Game {
   update(dt) {
     if (!dt) return;
     this.car.update(dt, this.input);
-    console.log(`car segment ${this.road.query(this.car.segment,this.car.position.x,this.car.position.z)}`);
+let q = this.road.query(this.car.segment,this.car.position.x,this.car.position.z);
+  //  console.log(`car segment ${q}`);
     this.renderer.cameraView = this.input.cameraView;
-    console.log(this.input.cameraView);
+   // console.log(this.input.cameraView);
 
     this.renderer.render(this.car, this.road);
   }
