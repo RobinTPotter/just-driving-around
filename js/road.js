@@ -1,21 +1,20 @@
 export class Road {
   constructor(roaddata) {
     this.data = roaddata;
-    //  console.log(this.data.nodes);
 
     for (let nn = 0; nn < this.data.nodes.length; nn++) {
       let r = this.data.nodes[nn];
       let rn = this.data.nodes[(nn + 1) % this.data.nodes.length];
-      let diff = {
+      r.diff = {
         x: rn.position.x - r.position.x,
         y: rn.position.y - r.position.y,
         z: rn.position.z - r.position.z,
       };
-      let mag = Math.sqrt(diff.x * diff.x + diff.y * diff.y + diff.z * diff.z);
-      if (mag > 0)
-        r.direction = { x: diff.x / mag, y: diff.y / mag, z: diff.z / mag };
+      r.mag = Math.sqrt(r.diff.x * r.diff.x + r.diff.y * r.diff.y + r.diff.z * r.diff.z);
+      if (r.mag > 0)
+        r.direction = { x: r.diff.x / r.mag, y: r.diff.y / r.mag, z: r.diff.z / r.mag };
       else r.direction = null;
-      //console.log(r, rn, diff, mag);
+      //console.log(r, rn, r.diff, r.mag);
     }
 
     // console.log(this.data.nodes);
@@ -63,24 +62,12 @@ export class Road {
       //console.log(t4, t5, t6);
 
       this.vertices.push(
-        t1.x,
-        t1.y,
-        t1.z,
-        t2.x,
-        t2.y,
-        t2.z,
-        t3.x,
-        t3.y,
-        t3.z,
-        t4.x,
-        t4.y,
-        t4.z,
-        t5.x,
-        t5.y,
-        t5.z,
-        t6.x,
-        t6.y,
-        t6.z,
+        t1.x,         t1.y,        t1.z,
+        t2.x,        t2.y,        t2.z,
+        t3.x,        t3.y,        t3.z,
+        t4.x,        t4.y,        t4.z,
+        t5.x,        t5.y,        t5.z,
+        t6.x,        t6.y,        t6.z,
       );
 
       if (!this.data.roadLooped && nn == this.data.nodes.length - 2) {
@@ -99,6 +86,7 @@ export class Road {
       console.log("TODO full sweep");
     } else {
       let r = this.data.nodes[segment];
+      let rn = this.data.nodes[(segment + 1) % this.data.nodes.length];
 
       let rP = {
         x: x - r.position.x,
@@ -112,7 +100,13 @@ export class Road {
     //   console.log(
     //     `r direction: ${r.direction.x},${r.direction.z}`,
     //   );
-      console.log(`along: ${along}, offset ${offset} of ${segment}`);
+      //console.log(`along: ${along.toFixed(3)}, offset ${offset.toFixed(3)} of ${segment}`);
+      if (along<=r.mag && along>=0) {
+             // check where on road we are, this is dependant on width of both ends
+             // we only need to know if in the road and what proportion we are at in terms of bands
+             // if we are over the segment
+      }
+      return {"along": along, "offset": offset, "segment": segment, "diff": r.mag-along }
     }
   }
 }

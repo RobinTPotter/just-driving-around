@@ -12,7 +12,7 @@ export class Car {
     this.heading = Math.PI/2.0;
     this.steeringMax = 4;
     this.steeringSpeed = 0.6;
-    this.steeringRest = 0.6; //drag for steering
+    this.steeringRest = 0.8; //drag for steering
     this.DZ = 0.001;  // steering dead zone
     this.VDZ = 0.001; //veocity dead zone
     this.segment = 0; // segment of map the car always starts on 0
@@ -47,6 +47,6 @@ export class Car {
     this.position.x += Math.sin(this.heading) * this.velocity * dt;
     this.position.z += Math.cos(this.heading) * this.velocity * dt;
 
-  //  console.log("car x: ", dt, this.velocity,  this.x)
+    console.log(`car: velocity: ${this.velocity.toFixed(2)}`);
   }
 }

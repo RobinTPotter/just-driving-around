@@ -14,15 +14,28 @@
             inset: 0;
         }
     </style>
+
+
 </head>
 <body>
     <svg id="svg"></svg>
-    <script>
+    <script type="module">
+  import { RoadLoader } from "./js/roadio.js";
+       let md = await RoadLoader.load("./mapdata/test3.json");
+
+        
         const svg = document.querySelector("#svg");
         const main = create("g", { id: "main" });
+let road =[];
+	if (md.nodes.length>0) {
+ road = md.nodes;
 
-        let road = [];
-        const HIT_RADIUS = 24;
+} else {
+
+        road = [];
+       }
+
+const HIT_RADIUS = 24;
 
         const dragState = {
             active: false,
@@ -92,6 +105,9 @@
         }
 
         function renderRoad() {
+            if (road===undefined) return;
+            if (!road) return;
+            if (road.length==0) return;
             main.innerHTML = "";
 
             for (let i = 1; i < road.length; i++) {
@@ -108,13 +124,38 @@
             }
 
             for (let i = 0; i < road.length; i++) {
+                let r = road[i];
+                let rn = road[(i + 1) % (road.length)];
+
+if (r !== rn) {
+      r.diff = {
+        x: rn.position.x - r.position.x,
+        y: rn.position.y - r.position.y,
+        z: rn.position.z - r.position.z,
+      };
+      r.mag = Math.sqrt(r.diff.x * r.diff.x + r.diff.y * r.diff.y + r.diff.z * r.diff.z);
+      if (r.mag > 0)
+        r.direction = { x: r.diff.x / r.mag, y: r.diff.y / r.mag, z: r.diff.z / r.mag };
+      else r.direction = null;
+
+
+
+
+
+
+
+                let t1 = { "x": r.position.x - r.direction.z * r.width / 2, "y": r.position.y, "z": r.position.z + r.direction.x * r.width / 2 };
+                let t3 = { "x": r.position.x + r.direction.z * r.width / 2, "y": r.position.y, "z": r.position.z - r.direction.x * r.width / 2 };
+}
+
                 main.appendChild(
                     create("circle", {
                         cx: road[i].ex,
                         cy: road[i].ey,
-                        r: 20,
+                        r: 10,
                         fill: "none",
                         stroke: "black",
+                        "stroke-width": "1",
                         id: `c${i}`,
                     })
                 );

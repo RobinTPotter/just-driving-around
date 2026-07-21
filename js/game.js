@@ -9,13 +9,13 @@ export class Game {
   async start() {
     console.log("Game start");
 
-    let md = await RoadLoader.load("./mapdata/test.json");
+    let md = await RoadLoader.load("./mapdata/test3.json");
     this.road = new Road(md);
     this.input = new Input();
 
     this.car = new Car();
-    this.car.position.x = this.road.data.nodes[0].position.x    +    (this.road.data.nodes[1].position.x - this.road.data.nodes[0].position.x)/2 ;
-    this.car.position.z = this.road.data.nodes[0].position.z    +    (this.road.data.nodes[1].position.z - this.road.data.nodes[0].position.z)/2 ;
+    this.car.position.x = this.road.data.nodes[0].position.x    +    (this.road.data.nodes[1].position.x - this.road.data.nodes[0].position.x)/20 ;
+    this.car.position.z = this.road.data.nodes[0].position.z    +    (this.road.data.nodes[1].position.z - this.road.data.nodes[0].position.z)/20 ;
     this.car.heading = Math.atan2(this.road.data.nodes[1].position.x - this.road.data.nodes[0].position.x, this.road.data.nodes[1].position.z - this.road.data.nodes[0].position.z);
 
     console.log("car heading: ", this.car.heading); 
@@ -42,10 +42,10 @@ export class Game {
   update(dt) {
     if (!dt) return;
     this.car.update(dt, this.input);
-let q = this.road.query(this.car.segment,this.car.position.x,this.car.position.z);
-  //  console.log(`car segment ${q}`);
+    let q = this.road.query(this.car.segment,this.car.position.x,this.car.position.z);
+    console.log(`car segment ${JSON.stringify(q)}`);
     this.renderer.cameraView = this.input.cameraView;
-   // console.log(this.input.cameraView);
+    // console.log(this.input.cameraView);
 
     this.renderer.render(this.car, this.road);
   }
