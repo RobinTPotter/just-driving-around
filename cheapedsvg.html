@@ -20,10 +20,8 @@
 <body>
     <svg id="svg"></svg>
     <script type="module">
-  import { RoadLoader } from "./js/roadio.js";
-       let md = await RoadLoader.load("./mapdata/test3.json");
-
-        
+        import { RoadLoader } from "./js/roadio.js";
+        let md = await RoadLoader.load("./mapdata/test.json");  
         const svg = document.querySelector("#svg");
         const main = create("g", { id: "main" });
 let road =[];

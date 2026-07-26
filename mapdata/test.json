@@ -1,7 +1,7 @@
 {
      "nodes": [
         {"position":{"x":-241,"y":0,"z":-182},"ex":366,"ey":230,"camber":0,"strips":[],"width":8},
-        {"position":{"x":47,"y":0,"z":-235},"ex":654,"ey":177,"camber":0,"strips":[],"width":8},
+        {"position":{"x":-47,"y":0,"z":-235},"ex":654,"ey":177,"camber":0,"strips":[],"width":8},
         {"position":{"x":69,"y":0,"z":-239},"ex":676,"ey":173,"camber":0,"strips":[],"width":8},
         {"position":{"x":77,"y":0,"z":-231},"ex":684,"ey":181,"camber":0,"strips":[],"width":8},
         {"position":{"x":85,"y":0,"z":-220},"ex":692,"ey":192,"camber":0,"strips":[],"width":8},

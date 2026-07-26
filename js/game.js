@@ -9,7 +9,7 @@ export class Game {
   async start() {
     console.log("Game start");
 
-    let md = await RoadLoader.load("./mapdata/test3.json");
+    let md = await RoadLoader.load("./mapdata/test.json");
     this.road = new Road(md);
     this.input = new Input();
 
@@ -17,11 +17,13 @@ export class Game {
     this.car.position.x = this.road.data.nodes[0].position.x    +    (this.road.data.nodes[1].position.x - this.road.data.nodes[0].position.x)/20 ;
     this.car.position.z = this.road.data.nodes[0].position.z    +    (this.road.data.nodes[1].position.z - this.road.data.nodes[0].position.z)/20 ;
     this.car.heading = Math.atan2(this.road.data.nodes[1].position.x - this.road.data.nodes[0].position.x, this.road.data.nodes[1].position.z - this.road.data.nodes[0].position.z);
-
+    this.car.velocity = 180;
     console.log("car heading: ", this.car.heading); 
 
     this.renderer = new Renderer(300, 150, this.road, this.car);
-
+    this.div1 = document.querySelector("#hello1");
+    this.div2 = document.querySelector("#hello2");
+    this.div3 = document.querySelector("#hello3");
     this.lastTimestamp = null;
     this.loop(0);
   }
@@ -43,7 +45,9 @@ export class Game {
     if (!dt) return;
     this.car.update(dt, this.input);
     let q = this.road.query(this.car.segment,this.car.position.x,this.car.position.z);
-    console.log(`car segment ${JSON.stringify(q)}`);
+    this.div1.innerHTML = this.car.velocity;
+    this.div2.innerHTML = this.car.heading;
+    this.div3.innerHTML = JSON.stringify(q);
     this.renderer.cameraView = this.input.cameraView;
     // console.log(this.input.cameraView);
 

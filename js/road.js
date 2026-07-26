@@ -106,7 +106,7 @@ export class Road {
              // we only need to know if in the road and what proportion we are at in terms of bands
              // if we are over the segment
       }
-      return {"along": along, "offset": offset, "segment": segment, "diff": r.mag-along }
+      return {"along": along.toFixed(3), "offset": offset.toFixed(3), "segment": segment, "diff": (r.mag-along).toFixed(3) }
     }
   }
 }
