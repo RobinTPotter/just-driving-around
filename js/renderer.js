@@ -72,7 +72,7 @@ export class Renderer {
                 break;
             case "top":
                 this.camera.position.x = car.position.x;
-                this.camera.position.y = 20;
+                this.camera.position.y = 200;
                 this.camera.position.z = car.position.z;
                 this.camera.lookAt(car.position.x, 0, car.position.z);
                 break;

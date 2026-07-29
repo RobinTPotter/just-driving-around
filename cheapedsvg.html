@@ -98,8 +98,17 @@ const HIT_RADIUS = 24;
                 strips: [],
                 width: 5,
             });
-            navigator.clipboard.writeText(JSON.stringify(road, null, 2));
             renderRoad();
+        }
+
+        function recalculate() {
+            for (let rr=0;rr<road.length;rr++) {
+                const world = pointToWorld(road[rr].ex, road[rr].ey);
+                road[rr].position = {x: world.x, y: 0, z: world.z};
+            }
+
+            navigator.clipboard.writeText(JSON.stringify(road, null, 2));
+
         }
 
         function renderRoad() {

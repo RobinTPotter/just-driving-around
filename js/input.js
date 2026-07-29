@@ -33,7 +33,6 @@ export class Input {
         this.brake = false;
       } else if (e.code == "Digit1") {
         this.cameraView = "top";
-        console.log("heii");
       } else if (e.code == "Digit2") {
         this.cameraView = "follow";
       } else if (e.code == "Digit3") {
