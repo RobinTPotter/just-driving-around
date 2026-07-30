@@ -18,6 +18,13 @@
 
 </head>
 <body>
+
+<button id="recalcBtn"
+        style="position:absolute;top:10px;left:10px;z-index:1000">
+    Recalculate
+</button>
+
+
     <svg id="svg"></svg>
     <script type="module">
         import { RoadLoader } from "./js/roadio.js";
@@ -185,7 +192,17 @@ if (r !== rn) {
             return out;
         }
 
-        document.body.onmousedown = function (e) {
+
+const recalcBtn = document.querySelector("#recalcBtn");
+
+recalcBtn.addEventListener("mousedown", e => e.stopPropagation());
+recalcBtn.addEventListener("mouseup", e => e.stopPropagation());
+recalcBtn.addEventListener("click", e => {
+    e.stopPropagation();
+    recalculate();
+});
+
+        svg.onmousedown = function (e) {
             const x = e.clientX;
             const y = e.clientY;
             const indices = findCandidates(x, y);
@@ -197,7 +214,7 @@ if (r !== rn) {
             dragState.lastY = y;
         };
 
-        document.body.onmousemove = function (e) {
+        svg.onmousemove = function (e) {
             if (!dragState.active || e.buttons === 0) {
                 return;
             }
@@ -226,7 +243,7 @@ if (r !== rn) {
             renderRoad();
         };
 
-        document.body.onmouseup = function (e) {
+        svg.onmouseup = function (e) {
             const x = e.clientX;
             const y = e.clientY;
 

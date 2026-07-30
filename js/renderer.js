@@ -10,7 +10,7 @@ export class Renderer {
         const canvas = document.querySelector("#c");
         this.renderer = new THREE.WebGLRenderer({ antialias: true, canvas });
 
-        this.renderer.setPixelRatio(2);
+        this.renderer.setPixelRatio(1);
         this.renderer.setSize(w * 2, h * 2, false);
 
 
