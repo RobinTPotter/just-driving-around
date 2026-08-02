@@ -1,59 +1,291 @@
 <html>
 <head>
-<style>
-</style>
+    <style>
+        html,
+        body {
+            margin: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+        }
+
+        #svg {
+            position: absolute;
+            inset: 0;
+        }
+    </style>
+
+
 </head>
 <body>
-<canvas id="c">
-</canvas>
-<script>
-const canvas = document.querySelector("#c");
 
-canvas.style.position = "absolute";
-canvas.style.top = 0;
-canvas.style.left = 0;
-canvas.width = document.body.clientWidth-1;
-canvas.height = document.body.clientHeight-1;
+<button id="recalcBtn"
+        style="position:absolute;top:10px;left:10px;z-index:1000">
+    Recalculate
+</button>
+  <label style="position:absolute; top:10px; left:120px; margin-left: 12px; font-size: 14px; z-index:1000">
+    <input id="buildingsModeCheckbox" type="checkbox">
+    Buildings Mode
+  </label>
 
-const ctx = canvas.getContext("2d");
+    <svg id="svg"></svg>
+    <script type="module">
+        import { RoadLoader } from "./js/roadio.js";
+        let md = await RoadLoader.load("./mapdata/test.json");  
 
-let road = []
+        let buildingsMode=false;
 
-document.body.onclick = function(e) { 
-    addRoadBit(e.x, e.y);
-};
+        const svg = document.querySelector("#svg");
+        const main = create("g", { id: "main" });
+        let road =[];
+        if (md.nodes.length>0) {
+            road = md.nodes;
+        } else {
+            road = [];
+        }
 
-clear();
+        const HIT_RADIUS = 16;
 
-function clear() {
-   
-ctx.fillStyle = "white";
-ctx.lineWidth = 4;
-ctx.strokeStyle="black";
-ctx.rect(0,0,canvas.width,canvas.height,"#110000");
-ctx.fill();
-ctx.stroke();
- 
+        const dragState = {
+            active: false,
+            moved: false,
+            lastX: 0,
+            lastY: 0,
+            indices: [],
+        };
+
+
+        function setBuildingsMode(e) {
+            //alert(e);console.log(e);
+            buildingsMode = e.srcElement.checked;
+            console.log(buildingsMode);
+        }
+
+        function create(tag, attrs) {
+            const el = document.createElementNS("http://www.w3.org/2000/svg", tag);
+            for (const k in attrs) {
+                el.setAttribute(k, attrs[k]);
+            }
+            return el;
+        }
+
+        function pointToWorld(ex, ey) {
+            const w = document.body.clientWidth;
+            const h = document.body.clientHeight;
+
+            return {
+                x: ex - Math.floor(w / 2),
+                z: ey - Math.floor(h / 2),
+            };
+        }
+
+        function setupSvg() {
+            const w = document.body.clientWidth;
+            const h = document.body.clientHeight;
+
+            svg.setAttribute("width", String(w));
+            svg.setAttribute("height", String(h));
+            svg.setAttribute("viewBox", `0 0 ${w} ${h}`);
+
+            svg.innerHTML = "";
+            svg.appendChild(
+                create("rect", {
+                    x: 0,
+                    y: 0,
+                    width: w,
+                    height: h,
+                    stroke: "rgba(0,0,0,1)",
+                    "stroke-width": 2,
+                    "stroke-linecap": "round",
+                    fill: "white",
+                })
+            );
+            svg.appendChild(main);
+            renderRoad();
+        }
+
+        function addRoadBit(ex, ey) {
+            const world = pointToWorld(ex, ey);
+
+            road.push({
+                order: road.length,
+                position: { x: world.x, y: 0, z: world.z },
+                ex,
+                ey,
+                camber: 0,
+                strips: [],
+                width: 5,
+            });
+            renderRoad();
+        }
+
+        function recalculate() {
+            for (let rr=0;rr<road.length;rr++) {
+                const world = pointToWorld(road[rr].ex, road[rr].ey);
+                road[rr].position = {x: world.x, y: 0, z: world.z};
+            }
+
+            navigator.clipboard.writeText(JSON.stringify(road, null, 2));
+            await fetch("/save", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({"filename": "./mapdata/test0.json", "body": { "nodes": road }})
+            });
+        }
+
+        function renderRoad() {
+            if (road===undefined) return;
+            if (!road) return;
+            if (road.length==0) return;
+            main.innerHTML = "";
+
+            for (let i = 1; i < road.length; i++) {
+                main.appendChild(
+                    create("path", {
+                        d: `M ${road[i - 1].ex} ${road[i - 1].ey} L ${road[i].ex} ${road[i].ey}`,
+                        stroke: "rgba(0,0,0,1)",
+                        "stroke-width": 2,
+                        "stroke-linecap": "round",
+                        fill: "none",
+                        id: `p${i - 1}-${i}`,
+                    })
+                );
+            }
+
+            for (let i = 0; i < road.length; i++) {
+                let r = road[i];
+                let rn = road[(i + 1) % (road.length)];
+
+if (r !== rn) {
+      r.diff = {
+        x: rn.position.x - r.position.x,
+        y: rn.position.y - r.position.y,
+        z: rn.position.z - r.position.z,
+      };
+      r.mag = Math.sqrt(r.diff.x * r.diff.x + r.diff.y * r.diff.y + r.diff.z * r.diff.z);
+      if (r.mag > 0)
+        r.direction = { x: r.diff.x / r.mag, y: r.diff.y / r.mag, z: r.diff.z / r.mag };
+      else r.direction = null;
+
+
+
+
+
+
+
+                let t1 = { "x": r.position.x - r.direction.z * r.width / 2, "y": r.position.y, "z": r.position.z + r.direction.x * r.width / 2 };
+                let t3 = { "x": r.position.x + r.direction.z * r.width / 2, "y": r.position.y, "z": r.position.z - r.direction.x * r.width / 2 };
 }
 
-function addRoadBit(ex,ey) {
-     ctx.beginPath();
-     ctx.strokeStyle="black";
-     x = ex - Math.floor(canvas.width/2);
-     y = ey - Math.floor(canvas.height/2);
-     road.push({"position": {"x": x, "y": 0, "z": y}, "ex": ex, "ey": ey, "camber": 0, "strips": [], "width": 5})
-     ctx.ellipse(ex,ey,20,20,0,Math.PI*2,false);
-     ctx.stroke();
-     if (road.length>1) {
-     ctx.beginPath();
-     ctx.strokeStyle="grey";
-     ctx.moveTo(ex, ey);
-     ctx.lineTo(road[road.length-2].ex, road[road.length-2].ey);
-     ctx.stroke();
-	console.log(JSON.stringify(road));
-     }
+                main.appendChild(
+                    create("circle", {
+                        cx: road[i].ex,
+                        cy: road[i].ey,
+                        r: 10,
+                        fill: "none",
+                        stroke: "black",
+                        "stroke-width": "1",
+                        id: `c${i}`,
+                    })
+                );
+            }
+        }
 
-}
-</script>
+        function findCandidates(x, y) {
+            const out = [];
+            const r2 = HIT_RADIUS * HIT_RADIUS;
+
+            for (let i = 0; i < road.length; i++) {
+                const dx = x - road[i].ex;
+                const dy = y - road[i].ey;
+
+                if (dx * dx + dy * dy <= r2) {
+                    out.push(i);
+                }
+            }
+
+            return out;
+        }
+
+
+const recalcBtn = document.querySelector("#recalcBtn");
+
+recalcBtn.addEventListener("mousedown", e => e.stopPropagation());
+recalcBtn.addEventListener("mouseup", e => e.stopPropagation());
+recalcBtn.addEventListener("click", e => {
+    e.stopPropagation();
+    recalculate();
+});
+
+const buildingsModeCheckbox = document.querySelector("#buildingsModeCheckbox");
+buildingsModeCheckbox.addEventListener("mousedown", e => e.stopPropagation());
+buildingsModeCheckbox.addEventListener("mouseup", e => e.stopPropagation());
+buildingsModeCheckbox.addEventListener("click", e => {
+    e.stopPropagation();
+    setBuildingsMode(e);
+});
+
+
+        svg.onmousedown = function (e) {
+            const x = e.clientX;
+            const y = e.clientY;
+            const indices = findCandidates(x, y);
+
+            dragState.active = indices.length > 0;
+            dragState.moved = false;
+            dragState.indices = indices;
+            dragState.lastX = x;
+            dragState.lastY = y;
+        };
+
+        svg.onmousemove = function (e) {
+            if (!dragState.active || e.buttons === 0) {
+                return;
+            }
+
+            const x = e.clientX;
+            const y = e.clientY;
+            const dx = x - dragState.lastX;
+            const dy = y - dragState.lastY;
+
+            if (dx !== 0 || dy !== 0) {
+                dragState.moved = true;
+            }
+
+            for (const idx of dragState.indices) {
+                road[idx].ex += dx;
+                road[idx].ey += dy;
+
+                const world = pointToWorld(road[idx].ex, road[idx].ey);
+                road[idx].position.x = world.x;
+                road[idx].position.z = world.z;
+            }
+
+            dragState.lastX = x;
+            dragState.lastY = y;
+
+            renderRoad();
+        };
+
+        svg.onmouseup = function (e) {
+            const x = e.clientX;
+            const y = e.clientY;
+            if (!buildingsMode) {
+	            if (!dragState.active && findCandidates(x, y).length === 0) {
+	                addRoadBit(x, y);
+	            }
+            }
+
+            dragState.active = false;
+            dragState.indices = [];
+            dragState.moved = false;
+        };
+
+        window.addEventListener("resize", setupSvg);
+
+        setupSvg();
+    </script>
 </body>
 </html>
