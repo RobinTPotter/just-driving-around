@@ -23,24 +23,29 @@
         style="position:absolute;top:10px;left:10px;z-index:1000">
     Recalculate
 </button>
-
+  <label style="position:absolute; top:10px; left:120px; margin-left: 12px; font-size: 14px; z-index:1000">
+    <input id="buildingsModeCheckbox" type="checkbox">
+    Buildings Mode
+  </label>
 
     <svg id="svg"></svg>
     <script type="module">
         import { RoadLoader } from "./js/roadio.js";
         let md = await RoadLoader.load("./mapdata/test.json");  
+
+        let buildingsMode=false;
+
         const svg = document.querySelector("#svg");
         const main = create("g", { id: "main" });
-let road =[];
+        let road =[];
 	if (md.nodes.length>0) {
- road = md.nodes;
+            road = md.nodes;
 
-} else {
+        } else {
+            road = [];
+        }
 
-        road = [];
-       }
-
-const HIT_RADIUS = 24;
+        const HIT_RADIUS = 16;
 
         const dragState = {
             active: false,
@@ -49,6 +54,13 @@ const HIT_RADIUS = 24;
             lastY: 0,
             indices: [],
         };
+
+
+        function setBuildingsMode(e) {
+            //alert(e);console.log(e);
+            buildingsMode = e.srcElement.checked;
+            console.log(buildingsMode);
+        }
 
         function create(tag, attrs) {
             const el = document.createElementNS("http://www.w3.org/2000/svg", tag);
@@ -202,6 +214,15 @@ recalcBtn.addEventListener("click", e => {
     recalculate();
 });
 
+const buildingsModeCheckbox = document.querySelector("#buildingsModeCheckbox");
+buildingsModeCheckbox.addEventListener("mousedown", e => e.stopPropagation());
+buildingsModeCheckbox.addEventListener("mouseup", e => e.stopPropagation());
+buildingsModeCheckbox.addEventListener("click", e => {
+    e.stopPropagation();
+    setBuildingsMode(e);
+});
+
+
         svg.onmousedown = function (e) {
             const x = e.clientX;
             const y = e.clientY;
@@ -246,9 +267,10 @@ recalcBtn.addEventListener("click", e => {
         svg.onmouseup = function (e) {
             const x = e.clientX;
             const y = e.clientY;
-
-            if (!dragState.active && findCandidates(x, y).length === 0) {
-                addRoadBit(x, y);
+            if (!buildingsMode) {
+	            if (!dragState.active && findCandidates(x, y).length === 0) {
+	                addRoadBit(x, y);
+	            }
             }
 
             dragState.active = false;
