@@ -26,6 +26,7 @@
   <label style="position:absolute; top:10px; left:120px; margin-left: 12px; font-size: 14px; z-index:1000">
     <input id="buildingsModeCheckbox" type="checkbox">
     Buildings Mode
+</input>
   </label>
 
     <svg id="svg"></svg>
@@ -119,7 +120,7 @@
             renderRoad();
         }
 
-        function recalculate() {
+        async function recalculate() {
             for (let rr=0;rr<road.length;rr++) {
                 const world = pointToWorld(road[rr].ex, road[rr].ey);
                 road[rr].position = {x: world.x, y: 0, z: world.z};

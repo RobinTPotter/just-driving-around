@@ -44,7 +44,9 @@ export class Renderer {
             'position', new THREE.Float32BufferAttribute(road.vertices, 3)
         );
 
-        const roadMaterial = new THREE.MeshBasicMaterial({ color: 0x555555 });
+        const roadMaterial = new THREE.MeshBasicMaterial({
+            color: 0x555555
+        });
 
         const roadMesh = new THREE.Mesh(roadGeometry, roadMaterial);
 
