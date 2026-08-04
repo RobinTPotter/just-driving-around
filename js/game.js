@@ -10,7 +10,7 @@ export class Game {
     console.log("Game start");
 
     let r = Math.random();
-    let md = await RoadLoader.load(`./mapdata/test4.json?r=${r}`);
+    let md = await RoadLoader.load(`./test0.json?r=${r}`);
     this.road = new Road(md);
     this.input = new Input();
 
@@ -50,6 +50,7 @@ export class Game {
     this.div2.innerHTML = this.car.heading.toFixed(4);
     this.div3.innerHTML = JSON.stringify(q);
     this.renderer.cameraView = this.input.cameraView;
+    this.renderer.setRoadEdgeDebugVisible(this.input.debugRoadEdges);
     // console.log(this.input.cameraView);
 
     this.renderer.render(this.car, this.road);

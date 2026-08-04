@@ -7,11 +7,39 @@
             width: 100%;
             height: 100%;
             overflow: hidden;
+            user-select: none;
+            -webkit-user-select: none;
+            -ms-user-select: none;
         }
 
         #svg {
             position: absolute;
             inset: 0;
+        }
+
+        #toolbar {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            z-index: 1000;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-size: 14px;
+            background: rgba(255, 255, 255, 0.9);
+            padding: 6px 8px;
+            border-radius: 6px;
+        }
+
+        #toolbar label {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        #buildingAngleReadout {
+            min-width: 110px;
+            font-family: Consolas, "Courier New", monospace;
         }
     </style>
 
@@ -19,20 +47,25 @@
 </head>
 <body>
 
-<button id="recalcBtn"
-        style="position:absolute;top:10px;left:10px;z-index:1000">
-    Recalculate
-</button>
-  <label style="position:absolute; top:10px; left:120px; margin-left: 12px; font-size: 14px; z-index:1000">
-    <input id="buildingsModeCheckbox" type="checkbox">
-    Buildings Mode
-</input>
-  </label>
+    <div id="toolbar">
+        <button id="recalcBtn">Recalculate</button>
+        <button id="subdivideBtn">Subdivide Selection</button>
+        <button id="smoothBtn">Smooth Selection</button>
+        <button id="deleteBtn">Delete Selection</button>
+        <span id="buildingAngleReadout">angle: -</span>
+        <label id="buildingModeLabel">
+            <input id="buildingsModeCheckbox" type="checkbox">Buildings Mode</input>
+        </label>
+        <label id="roadLoopedLabel">
+            <input id="roadLoopedCheckbox" type="checkbox">Looped</input>
+        </label>
+    </div>
 
     <svg id="svg"></svg>
     <script type="module">
+    
         import { RoadLoader } from "./js/roadio.js";
-        let md = await RoadLoader.load("./mapdata/test.json");  
+        let md = await RoadLoader.load("./test0.json");  
 
         let buildingsMode=false;
 
@@ -45,7 +78,18 @@
             road = [];
         }
 
-        const HIT_RADIUS = 16;
+        let buildings = Array.isArray(md.buildings) ? md.buildings.map(b => ({
+            x: typeof b.x === "number" ? b.x : 0,
+            y: typeof b.y === "number" ? b.y : 5,
+            z: typeof b.z === "number" ? b.z : 0,
+            width: typeof b.width === "number" ? b.width : 5,
+            height: typeof b.height === "number" ? b.height : 10,
+            depth: typeof b.depth === "number" ? b.depth : 5,
+            // Stored angle uses world convention; editor uses screen convention (inverse sign).
+            angle: typeof b.angle === "number" ? -b.angle : 0,
+        })) : [];
+
+        const HIT_RADIUS = 8;
 
         const dragState = {
             active: false,
@@ -53,12 +97,63 @@
             lastX: 0,
             lastY: 0,
             indices: [],
+            selectionOnly: false,
         };
 
+        const marqueeState = {
+            active: false,
+            moved: false,
+            additive: false,
+            startX: 0,
+            startY: 0,
+            currentX: 0,
+            currentY: 0,
+            startedOnEmpty: false,
+            hadSelectionAtStart: false,
+        };
 
-        function setBuildingsMode(e) {
-            //alert(e);console.log(e);
-            buildingsMode = e.srcElement.checked;
+        const MARQUEE_MIN_DRAG = 3;
+        let marqueeRectEl = null;
+
+        const selectedIndices = new Set();
+        let selectedBuildingIndex = -1;
+
+        const buildingDragState = {
+            active: false,
+            moved: false,
+            mode: "none",
+            index: -1,
+            lastX: 0,
+            lastY: 0,
+        };
+
+        const buildingClickState = {
+            startedOnEmpty: false,
+            hadSelectionAtStart: false,
+        };
+
+        const viewState = {
+            initialized: false,
+            x: 0,
+            y: 0,
+            width: 0,
+            height: 0,
+            screenW: 0,
+            screenH: 0,
+        };
+
+        const viewDragState = {
+            active: false,
+            lastX: 0,
+            lastY: 0,
+        };
+
+        const MIN_VIEW_WIDTH = 80;
+        const MAX_VIEW_ZOOM_OUT = 20;
+
+
+        function setBuildingsMode(checked) {
+            buildingsMode = checked;
             console.log(buildingsMode);
         }
 
@@ -71,12 +166,82 @@
         }
 
         function pointToWorld(ex, ey) {
-            const w = document.body.clientWidth;
-            const h = document.body.clientHeight;
+            const w = viewState.screenW || document.body.clientWidth;
+            const h = viewState.screenH || document.body.clientHeight;
 
             return {
                 x: ex - Math.floor(w / 2),
                 z: ey - Math.floor(h / 2),
+            };
+        }
+
+        function worldToScreen(x, z) {
+            const w = viewState.screenW || document.body.clientWidth;
+            const h = viewState.screenH || document.body.clientHeight;
+
+            return {
+                x: x + Math.floor(w / 2),
+                y: z + Math.floor(h / 2),
+            };
+        }
+
+        function applyViewBox() {
+            svg.setAttribute("viewBox", `${viewState.x} ${viewState.y} ${viewState.width} ${viewState.height}`);
+        }
+
+        function eventToSvgPoint(e) {
+            const pt = svg.createSVGPoint();
+            pt.x = e.clientX;
+            pt.y = e.clientY;
+
+            const ctm = svg.getScreenCTM();
+            if (!ctm) {
+                return { x: e.clientX, y: e.clientY };
+            }
+
+            const transformed = pt.matrixTransform(ctm.inverse());
+            return { x: transformed.x, y: transformed.y };
+        }
+
+        function isNothingSelected() {
+            return selectedIndices.size === 0 && selectedBuildingIndex < 0;
+        }
+
+        function startViewDrag(clientX, clientY) {
+            viewDragState.active = true;
+            viewDragState.lastX = clientX;
+            viewDragState.lastY = clientY;
+        }
+
+        function zoomViewAt(svgX, svgY, deltaY) {
+            if (!viewState.initialized) {
+                return;
+            }
+
+            const zoomFactor = deltaY > 0 ? 1.1 : 0.9;
+            const minWidth = MIN_VIEW_WIDTH;
+            const maxWidth = (viewState.screenW || 1) * MAX_VIEW_ZOOM_OUT;
+
+            const newWidth = Math.max(minWidth, Math.min(maxWidth, viewState.width * zoomFactor));
+            const aspect = (viewState.screenH || 1) / (viewState.screenW || 1);
+            const newHeight = newWidth * aspect;
+
+            const rx = (svgX - viewState.x) / viewState.width;
+            const ry = (svgY - viewState.y) / viewState.height;
+
+            viewState.x = svgX - rx * newWidth;
+            viewState.y = svgY - ry * newHeight;
+            viewState.width = newWidth;
+            viewState.height = newHeight;
+            applyViewBox();
+        }
+
+        function clientDeltaToSvg(dx, dy) {
+            const sx = viewState.width / (viewState.screenW || 1);
+            const sy = viewState.height / (viewState.screenH || 1);
+            return {
+                x: dx * sx,
+                y: dy * sy,
             };
         }
 
@@ -86,22 +251,46 @@
 
             svg.setAttribute("width", String(w));
             svg.setAttribute("height", String(h));
-            svg.setAttribute("viewBox", `0 0 ${w} ${h}`);
+
+            if (!viewState.initialized) {
+                viewState.initialized = true;
+                viewState.x = 0;
+                viewState.y = 0;
+                viewState.width = w;
+                viewState.height = h;
+                viewState.screenW = w;
+                viewState.screenH = h;
+            } else {
+                const centerX = viewState.x + viewState.width / 2;
+                const centerY = viewState.y + viewState.height / 2;
+                const oldScreenW = viewState.screenW || w;
+                const zoom = viewState.width / oldScreenW;
+
+                viewState.screenW = w;
+                viewState.screenH = h;
+                viewState.width = w * zoom;
+                viewState.height = h * zoom;
+                viewState.x = centerX - viewState.width / 2;
+                viewState.y = centerY - viewState.height / 2;
+            }
+
+            applyViewBox();
 
             svg.innerHTML = "";
-            svg.appendChild(
-                create("rect", {
-                    x: 0,
-                    y: 0,
-                    width: w,
-                    height: h,
-                    stroke: "rgba(0,0,0,1)",
-                    "stroke-width": 2,
-                    "stroke-linecap": "round",
-                    fill: "white",
-                })
-            );
+            // svg.appendChild(
+            //     create("rect", {
+            //         x: 0,
+            //         y: 0,
+            //         width: w,
+            //         height: h,
+            //         stroke: "rgba(0,0,0,1)",
+            //         "stroke-width": 2,
+            //         "stroke-linecap": "round",
+            //         fill: "white",
+            //     })
+            // );
             svg.appendChild(main);
+            marqueeRectEl = null;
             renderRoad();
         }
 
@@ -115,8 +304,301 @@
                 ey,
                 camber: 0,
                 strips: [],
-                width: 5,
+                width: 8,
             });
+            renderRoad();
+        }
+
+        function addRoadBitAt(index, ex, ey) {
+            const world = pointToWorld(ex, ey);
+
+            road.splice(index, 0, {
+                order: index,
+                position: { x: world.x, y: 0, z: world.z },
+                ex,
+                ey,
+                camber: 0,
+                strips: [],
+                width: 8,
+            });
+
+            normalizeRoadOrder();
+
+            const shifted = Array.from(selectedIndices)
+                .map(i => (i >= index ? i + 1 : i));
+            selectedIndices.clear();
+            for (const i of shifted) {
+                selectedIndices.add(i);
+            }
+            selectedIndices.add(index);
+
+            renderRoad();
+        }
+
+        function addBuildingAt(ex, ey) {
+            const world = pointToWorld(ex, ey);
+            buildings.push({
+                x: world.x,
+                y: 5,
+                z: world.z,
+                width: 10,
+                height: 10,
+                depth: 10,
+                angle: 0,
+            });
+            selectedBuildingIndex = buildings.length - 1;
+            renderRoad();
+        }
+
+        function updateRoadWorldAt(idx) {
+            const world = pointToWorld(road[idx].ex, road[idx].ey);
+            road[idx].position.x = world.x;
+            road[idx].position.z = world.z;
+        }
+
+        function normalizeRoadOrder() {
+            for (let i = 0; i < road.length; i++) {
+                road[i].order = i;
+            }
+        }
+
+        function getBuildingScreenCorners(b) {
+            const hw = b.width / 2;
+            const hd = b.depth / 2;
+            const c = Math.cos(b.angle);
+            const s = Math.sin(b.angle);
+
+            const corners = [
+                { lx: -hw, lz: -hd },
+                { lx: hw, lz: -hd },
+                { lx: hw, lz: hd },
+                { lx: -hw, lz: hd },
+            ];
+
+            return corners.map(p => {
+                const wx = b.x + p.lx * c - p.lz * s;
+                const wz = b.z + p.lx * s + p.lz * c;
+                return worldToScreen(wx, wz);
+            });
+        }
+
+        function pointInPolygon(px, py, pts) {
+            let inside = false;
+            for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) {
+                const xi = pts[i].x;
+                const yi = pts[i].y;
+                const xj = pts[j].x;
+                const yj = pts[j].y;
+
+                const intersects = ((yi > py) !== (yj > py)) &&
+                    (px < (xj - xi) * (py - yi) / ((yj - yi) || 1e-9) + xi);
+                if (intersects) {
+                    inside = !inside;
+                }
+            }
+            return inside;
+        }
+
+        function findBuildingAt(ex, ey) {
+            for (let i = buildings.length - 1; i >= 0; i--) {
+                const pts = getBuildingScreenCorners(buildings[i]);
+                if (pointInPolygon(ex, ey, pts)) {
+                    return i;
+                }
+            }
+
+            return -1;
+        }
+
+        function buildingIndexFromEventTarget(target) {
+            if (!target || !target.id) {
+                return -1;
+            }
+
+            const m = String(target.id).match(/^b(\d+)$/);
+            if (!m) {
+                return -1;
+            }
+
+            const idx = Number(m[1]);
+            if (!Number.isInteger(idx) || idx < 0 || idx >= buildings.length) {
+                return -1;
+            }
+
+            return idx;
+        }
+
+        function buildingPathD(b) {
+            const pts = getBuildingScreenCorners(b);
+
+            return `M ${pts[0].x} ${pts[0].y} L ${pts[1].x} ${pts[1].y} L ${pts[2].x} ${pts[2].y} L ${pts[3].x} ${pts[3].y} Z`;
+        }
+
+        function clearMarqueeRect() {
+            if (marqueeRectEl && marqueeRectEl.parentNode) {
+                marqueeRectEl.parentNode.removeChild(marqueeRectEl);
+            }
+            marqueeRectEl = null;
+        }
+
+        function updateMarqueeRect() {
+            if (!marqueeState.active || !marqueeState.moved) {
+                clearMarqueeRect();
+                return;
+            }
+
+            const x = Math.min(marqueeState.startX, marqueeState.currentX);
+            const y = Math.min(marqueeState.startY, marqueeState.currentY);
+            const w = Math.abs(marqueeState.currentX - marqueeState.startX);
+            const h = Math.abs(marqueeState.currentY - marqueeState.startY);
+
+            if (!marqueeRectEl) {
+                marqueeRectEl = create("rect", {
+                    fill: "rgba(32, 106, 255, 0.14)",
+                    stroke: "rgba(32, 106, 255, 0.9)",
+                    "stroke-width": 1,
+                    "stroke-dasharray": "4 3",
+                    "pointer-events": "none",
+                });
+                svg.appendChild(marqueeRectEl);
+            }
+
+            marqueeRectEl.setAttribute("x", String(x));
+            marqueeRectEl.setAttribute("y", String(y));
+            marqueeRectEl.setAttribute("width", String(w));
+            marqueeRectEl.setAttribute("height", String(h));
+        }
+
+        function selectPointsInRect(x1, y1, x2, y2, additive) {
+            const minX = Math.min(x1, x2);
+            const maxX = Math.max(x1, x2);
+            const minY = Math.min(y1, y2);
+            const maxY = Math.max(y1, y2);
+
+            if (!additive) {
+                selectedIndices.clear();
+            }
+
+            for (let i = 0; i < road.length; i++) {
+                const px = road[i].ex;
+                const py = road[i].ey;
+                if (px >= minX && px <= maxX && py >= minY && py <= maxY) {
+                    selectedIndices.add(i);
+                }
+            }
+        }
+
+        function smoothSelection() {
+            const sorted = Array.from(selectedIndices).sort((a, b) => a - b);
+            if (sorted.length < 3) {
+                return;
+            }
+
+            // Read from original positions so one point update does not affect others in this pass.
+            const original = sorted.map(idx => ({
+                idx,
+                ex: road[idx].ex,
+                ey: road[idx].ey,
+            }));
+
+            for (let i = 1; i < sorted.length - 1; i++) {
+                const prev = original[i - 1];
+                const curr = original[i];
+                const next = original[i + 1];
+                const idx = curr.idx;
+
+                road[idx].ex = 0.25 * prev.ex + 0.5 * curr.ex + 0.25 * next.ex;
+                road[idx].ey = 0.25 * prev.ey + 0.5 * curr.ey + 0.25 * next.ey;
+                updateRoadWorldAt(idx);
+            }
+
+            renderRoad();
+        }
+
+        function subdivideSelection() {
+            if (buildingsMode || road.length < 2 || selectedIndices.size < 2) {
+                return;
+            }
+
+            const sorted = Array.from(selectedIndices).sort((a, b) => a - b);
+            const ops = [];
+
+            for (let i = 0; i < sorted.length - 1; i++) {
+                const a = sorted[i];
+                const b = sorted[i + 1];
+                if (b === a + 1) {
+                    ops.push({ a, b, insertIndex: b });
+                }
+            }
+
+            if (
+                roadLoopedCheckbox.checked &&
+                sorted[0] === 0 &&
+                sorted[sorted.length - 1] === road.length - 1
+            ) {
+                ops.push({ a: road.length - 1, b: 0, insertIndex: road.length });
+            }
+
+            if (ops.length === 0) {
+                return;
+            }
+
+            ops.sort((x, y) => y.insertIndex - x.insertIndex);
+            const inserted = [];
+
+            for (const op of ops) {
+                const pa = road[op.a];
+                const pb = road[op.b % road.length];
+
+                const node = {
+                    order: op.insertIndex,
+                    position: {
+                        x: (pa.position.x + pb.position.x) / 2,
+                        y: 0,
+                        z: (pa.position.z + pb.position.z) / 2,
+                    },
+                    ex: (pa.ex + pb.ex) / 2,
+                    ey: (pa.ey + pb.ey) / 2,
+                    camber: 0,
+                    strips: [],
+                    width: (pa.width + pb.width) / 2,
+                };
+
+                road.splice(op.insertIndex, 0, node);
+                inserted.push(op.insertIndex);
+            }
+
+            normalizeRoadOrder();
+            selectedIndices.clear();
+            for (const idx of inserted) {
+                selectedIndices.add(idx);
+            }
+
+            renderRoad();
+        }
+
+        function deleteSelection() {
+            if (buildingsMode) {
+                if (selectedBuildingIndex < 0 || selectedBuildingIndex >= buildings.length) {
+                    return;
+                }
+                buildings.splice(selectedBuildingIndex, 1);
+                selectedBuildingIndex = -1;
+                renderRoad();
+                return;
+            }
+
+            if (selectedIndices.size === 0) {
+                return;
+            }
+
+            const sorted = Array.from(selectedIndices).sort((a, b) => b - a);
+            for (const idx of sorted) {
+                road.splice(idx, 1);
+            }
+
+            selectedIndices.clear();
+            normalizeRoadOrder();
             renderRoad();
         }
 
@@ -126,71 +608,121 @@
                 road[rr].position = {x: world.x, y: 0, z: world.z};
             }
 
+            const buildingsForSave = buildings.map(b => ({
+                ...b,
+                // Convert back to world convention when saving.
+                angle: -b.angle,
+            }));
+
             navigator.clipboard.writeText(JSON.stringify(road, null, 2));
+            const roadLoopedCheckboxValue = document.querySelector("#roadLoopedCheckbox").checked;
+
             await fetch("/save", {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json"
                 },
-                body: JSON.stringify({"filename": "./mapdata/test0.json", "body": { "nodes": road }})
+                body: JSON.stringify(
+                    {"filename": "./test0.json", 
+                    "body": {
+                         "nodes": road, 
+                         "roadLooped": roadLoopedCheckboxValue, 
+                         "buildings": buildingsForSave 
+                        }
+                    }
+                )
             });
         }
 
         function renderRoad() {
             if (road===undefined) return;
             if (!road) return;
-            if (road.length==0) return;
             main.innerHTML = "";
+            if (road.length > 0) {
+                for (let i = 1; i < road.length; i++) {
+                    main.appendChild(
+                        create("path", {
+                            d: `M ${road[i - 1].ex} ${road[i - 1].ey} L ${road[i].ex} ${road[i].ey}`,
+                            stroke: "rgba(0,0,0,1)",
+                            "stroke-width": 2,
+                            "stroke-linecap": "round",
+                            fill: "none",
+                            id: `p${i - 1}-${i}`,
+                        })
+                    );
+                }
 
-            for (let i = 1; i < road.length; i++) {
-                main.appendChild(
-                    create("path", {
-                        d: `M ${road[i - 1].ex} ${road[i - 1].ey} L ${road[i].ex} ${road[i].ey}`,
-                        stroke: "rgba(0,0,0,1)",
-                        "stroke-width": 2,
-                        "stroke-linecap": "round",
-                        fill: "none",
-                        id: `p${i - 1}-${i}`,
-                    })
-                );
-            }
+                if (road.length > 1 && roadLoopedCheckbox.checked) {
+                    main.appendChild(
+                        create("path", {
+                            d: `M ${road[road.length - 1].ex} ${road[road.length - 1].ey} L ${road[0].ex} ${road[0].ey}`,
+                            stroke: "rgba(0,0,0,1)",
+                            "stroke-width": 2,
+                            "stroke-linecap": "round",
+                            "stroke-dasharray": "1 6",
+                            fill: "none",
+                            id: `p${road.length - 1}-0`,
+                        })
+                    );
+                }
 
-            for (let i = 0; i < road.length; i++) {
-                let r = road[i];
-                let rn = road[(i + 1) % (road.length)];
+                for (let i = 0; i < road.length; i++) {
+                    let r = road[i];
+                    let rn = road[(i + 1) % (road.length)];
 
-if (r !== rn) {
-      r.diff = {
-        x: rn.position.x - r.position.x,
-        y: rn.position.y - r.position.y,
-        z: rn.position.z - r.position.z,
-      };
-      r.mag = Math.sqrt(r.diff.x * r.diff.x + r.diff.y * r.diff.y + r.diff.z * r.diff.z);
-      if (r.mag > 0)
-        r.direction = { x: r.diff.x / r.mag, y: r.diff.y / r.mag, z: r.diff.z / r.mag };
-      else r.direction = null;
+                if (r !== rn) {
+                
+                    r.diff = {
+                        x: rn.position.x - r.position.x,
+                        y: rn.position.y - r.position.y,
+                        z: rn.position.z - r.position.z,
+                    };
+                    
+                    r.mag = Math.sqrt(r.diff.x * r.diff.x + r.diff.y * r.diff.y + r.diff.z * r.diff.z);
+                    
+                    if (r.mag > 0) r.direction = { x: r.diff.x / r.mag, y: r.diff.y / r.mag, z: r.diff.z / r.mag };
+                    else r.direction = null;
 
-
-
-
-
-
-
-                let t1 = { "x": r.position.x - r.direction.z * r.width / 2, "y": r.position.y, "z": r.position.z + r.direction.x * r.width / 2 };
-                let t3 = { "x": r.position.x + r.direction.z * r.width / 2, "y": r.position.y, "z": r.position.z - r.direction.x * r.width / 2 };
-}
+                    let t1 = { "x": r.position.x - r.direction.z * r.width / 2, "y": r.position.y, "z": r.position.z + r.direction.x * r.width / 2 };
+                    let t3 = { "x": r.position.x + r.direction.z * r.width / 2, "y": r.position.y, "z": r.position.z - r.direction.x * r.width / 2 };
+                
+                }
 
                 main.appendChild(
                     create("circle", {
                         cx: road[i].ex,
                         cy: road[i].ey,
-                        r: 10,
-                        fill: "none",
-                        stroke: "black",
-                        "stroke-width": "1",
+                        r: HIT_RADIUS,
+                        fill: selectedIndices.has(i) ? "rgba(32, 106, 255, 0.18)" : "none",
+                        stroke: selectedIndices.has(i) ? "rgba(32, 106, 255, 1)" : "black",
+                        "stroke-width": selectedIndices.has(i) ? "2" : "1",
                         id: `c${i}`,
                     })
                 );
+                }
+            }
+
+            for (let i = 0; i < buildings.length; i++) {
+                const selected = i === selectedBuildingIndex;
+                main.appendChild(
+                    create("path", {
+                        d: buildingPathD(buildings[i]),
+                        fill: "rgba(255, 0, 0, 0.25)",
+                        stroke: selected ? "rgba(32, 106, 255, 1)" : "rgba(210, 0, 0, 1)",
+                        "stroke-width": selected ? "2" : "1",
+                        id: `b${i}`,
+                    })
+                );
+            }
+
+            const buildingAngleReadout = document.querySelector("#buildingAngleReadout");
+            if (buildingAngleReadout) {
+                if (selectedBuildingIndex >= 0 && selectedBuildingIndex < buildings.length) {
+                    const worldAngle = -buildings[selectedBuildingIndex].angle;
+                    buildingAngleReadout.textContent = `angle: ${worldAngle.toFixed(3)}`;
+                } else {
+                    buildingAngleReadout.textContent = "angle: -";
+                }
             }
         }
 
@@ -210,46 +742,315 @@ if (r !== rn) {
             return out;
         }
 
+        function findInsertSegmentIndex(x, y) {
+            if (road.length < 2) {
+                return -1;
+            }
 
-const recalcBtn = document.querySelector("#recalcBtn");
+            let bestIndex = -1;
+            let bestDist2 = HIT_RADIUS * HIT_RADIUS;
 
-recalcBtn.addEventListener("mousedown", e => e.stopPropagation());
-recalcBtn.addEventListener("mouseup", e => e.stopPropagation());
-recalcBtn.addEventListener("click", e => {
-    e.stopPropagation();
-    recalculate();
-});
+            for (let i = 1; i < road.length; i++) {
+                const ax = road[i - 1].ex;
+                const ay = road[i - 1].ey;
+                const bx = road[i].ex;
+                const by = road[i].ey;
 
-const buildingsModeCheckbox = document.querySelector("#buildingsModeCheckbox");
-buildingsModeCheckbox.addEventListener("mousedown", e => e.stopPropagation());
-buildingsModeCheckbox.addEventListener("mouseup", e => e.stopPropagation());
-buildingsModeCheckbox.addEventListener("click", e => {
-    e.stopPropagation();
-    setBuildingsMode(e);
-});
+                const abx = bx - ax;
+                const aby = by - ay;
+                const apx = x - ax;
+                const apy = y - ay;
+                const abLen2 = abx * abx + aby * aby;
+
+                let t = 0;
+                if (abLen2 > 0) {
+                    t = (apx * abx + apy * aby) / abLen2;
+                }
+                t = Math.max(0, Math.min(1, t));
+
+                const nx = ax + abx * t;
+                const ny = ay + aby * t;
+                const dx = x - nx;
+                const dy = y - ny;
+                const d2 = dx * dx + dy * dy;
+
+                if (d2 <= bestDist2) {
+                    bestDist2 = d2;
+                    bestIndex = i;
+                }
+            }
+
+            return bestIndex;
+        }
+
+
+        const recalcBtn = document.querySelector("#recalcBtn");
+        const subdivideBtn = document.querySelector("#subdivideBtn");
+        const smoothBtn = document.querySelector("#smoothBtn");
+        const deleteBtn = document.querySelector("#deleteBtn");
+
+        recalcBtn.addEventListener("mousedown", e => e.stopPropagation());
+        recalcBtn.addEventListener("mouseup", e => e.stopPropagation());
+        recalcBtn.addEventListener("click", e => {
+            e.stopPropagation();
+            recalculate();
+        });
+
+        subdivideBtn.addEventListener("mousedown", e => e.stopPropagation());
+        subdivideBtn.addEventListener("mouseup", e => e.stopPropagation());
+        subdivideBtn.addEventListener("click", e => {
+            e.stopPropagation();
+            subdivideSelection();
+        });
+
+        smoothBtn.addEventListener("mousedown", e => e.stopPropagation());
+        smoothBtn.addEventListener("mouseup", e => e.stopPropagation());
+        smoothBtn.addEventListener("click", e => {
+            e.stopPropagation();
+            smoothSelection();
+        });
+
+        deleteBtn.addEventListener("mousedown", e => e.stopPropagation());
+        deleteBtn.addEventListener("mouseup", e => e.stopPropagation());
+        deleteBtn.addEventListener("click", e => {
+            e.stopPropagation();
+            deleteSelection();
+        });
+
+        const buildingsModeCheckbox = document.querySelector("#buildingsModeCheckbox");
+        const roadLoopedCheckbox = document.querySelector("#roadLoopedCheckbox");
+        const buildingModeLabel = document.querySelector("#buildingModeLabel");
+        const roadLoopedLabel = document.querySelector("#roadLoopedLabel");
+
+        roadLoopedCheckbox.checked = !!md.roadLooped;
+
+        buildingModeLabel.addEventListener("mousedown", e => e.stopPropagation());
+        buildingModeLabel.addEventListener("mouseup", e => e.stopPropagation());
+        buildingModeLabel.addEventListener("click", e => e.stopPropagation());
+
+        roadLoopedLabel.addEventListener("mousedown", e => e.stopPropagation());
+        roadLoopedLabel.addEventListener("mouseup", e => e.stopPropagation());
+        roadLoopedLabel.addEventListener("click", e => e.stopPropagation());
+
+        roadLoopedCheckbox.addEventListener("mousedown", e => e.stopPropagation());
+        roadLoopedCheckbox.addEventListener("mouseup", e => e.stopPropagation());
+        roadLoopedCheckbox.addEventListener("change", e => {
+            e.stopPropagation();
+            renderRoad();
+        });
+        roadLoopedCheckbox.addEventListener("click", e => {
+            e.stopPropagation();
+        });
+
+        buildingsModeCheckbox.addEventListener("mousedown", e => e.stopPropagation());
+        buildingsModeCheckbox.addEventListener("mouseup", e => e.stopPropagation());
+        buildingsModeCheckbox.addEventListener("change", e => {
+            setBuildingsMode(e.target.checked);
+        });
+        buildingsModeCheckbox.addEventListener("click", e => {
+            e.stopPropagation();
+        });
 
 
         svg.onmousedown = function (e) {
-            const x = e.clientX;
-            const y = e.clientY;
-            const indices = findCandidates(x, y);
+            const p = eventToSvgPoint(e);
+            const x = p.x;
+            const y = p.y;
 
-            dragState.active = indices.length > 0;
-            dragState.moved = false;
-            dragState.indices = indices;
-            dragState.lastX = x;
-            dragState.lastY = y;
-        };
+            if (buildingsMode) {
+                e.preventDefault();
 
-        svg.onmousemove = function (e) {
-            if (!dragState.active || e.buttons === 0) {
+                let hit = buildingIndexFromEventTarget(e.target);
+                if (hit < 0) {
+                    hit = findBuildingAt(x, y);
+                }
+
+                if (e.button === 2 && hit < 0 && isNothingSelected()) {
+                    startViewDrag(e.clientX, e.clientY);
+                    return;
+                }
+
+                buildingClickState.startedOnEmpty = hit < 0;
+                buildingClickState.hadSelectionAtStart = selectedBuildingIndex >= 0;
+
+                buildingDragState.active = false;
+                buildingDragState.moved = false;
+                buildingDragState.mode = "none";
+                buildingDragState.index = -1;
+
+                if (hit >= 0 && e.button !== 2) {
+                    if (selectedBuildingIndex !== hit) {
+                        selectedBuildingIndex = hit;
+                        renderRoad();
+                    }
+
+                    buildingDragState.active = true;
+                    buildingDragState.index = hit;
+                    buildingDragState.lastX = e.clientX;
+                    buildingDragState.lastY = e.clientY;
+
+                    if (e.button === 1) {
+                        buildingDragState.mode = "stretch";
+                    } else if (e.button === 2) {
+                        buildingDragState.mode = "rotate";
+                    } else {
+                        buildingDragState.mode = "move";
+                    }
+
+                    if (e.button === 2 && selectedBuildingIndex !== hit) {
+                        buildingDragState.active = false;
+                        buildingDragState.index = -1;
+                        buildingDragState.mode = "none";
+                    }
+                }
+
                 return;
             }
 
-            const x = e.clientX;
-            const y = e.clientY;
-            const dx = x - dragState.lastX;
-            const dy = y - dragState.lastY;
+            if (e.button === 2 && isNothingSelected()) {
+                e.preventDefault();
+                startViewDrag(e.clientX, e.clientY);
+                return;
+            }
+
+            const indices = findCandidates(x, y);
+            const clicked = indices.length > 0 ? indices[0] : -1;
+            const isMultiSelectModifier = e.shiftKey || e.ctrlKey || e.metaKey;
+
+            dragState.selectionOnly = false;
+            dragState.active = false;
+            dragState.moved = false;
+            dragState.indices = [];
+
+            if (clicked >= 0 && e.button === 0) {
+                if (isMultiSelectModifier) {
+                    if (selectedIndices.has(clicked)) {
+                        selectedIndices.delete(clicked);
+                    } else {
+                        selectedIndices.add(clicked);
+                    }
+                    dragState.selectionOnly = true;
+                    renderRoad();
+                } else {
+                    if (!selectedIndices.has(clicked) || selectedIndices.size === 0) {
+                        selectedIndices.clear();
+                        selectedIndices.add(clicked);
+                        renderRoad();
+                    }
+
+                    dragState.active = true;
+                    dragState.moved = false;
+                    dragState.indices = Array.from(selectedIndices);
+                    dragState.lastX = e.clientX;
+                    dragState.lastY = e.clientY;
+                    return;
+                }
+            }
+
+            if (e.button !== 0) {
+                return;
+            }
+
+            marqueeState.active = true;
+            marqueeState.moved = false;
+            marqueeState.additive = isMultiSelectModifier;
+            marqueeState.startX = x;
+            marqueeState.startY = y;
+            marqueeState.currentX = x;
+            marqueeState.currentY = y;
+            marqueeState.startedOnEmpty = clicked < 0;
+            marqueeState.hadSelectionAtStart = selectedIndices.size > 0;
+
+            clearMarqueeRect();
+
+            dragState.lastX = e.clientX;
+            dragState.lastY = e.clientY;
+        };
+
+        svg.onmousemove = function (e) {
+            const p = eventToSvgPoint(e);
+            const x = p.x;
+            const y = p.y;
+
+            if (viewDragState.active) {
+                const clientDx = e.clientX - viewDragState.lastX;
+                const clientDy = e.clientY - viewDragState.lastY;
+                const delta = clientDeltaToSvg(clientDx, clientDy);
+                const dx = delta.x;
+                const dy = delta.y;
+
+                viewState.x -= dx;
+                viewState.y -= dy;
+                applyViewBox();
+
+                viewDragState.lastX = e.clientX;
+                viewDragState.lastY = e.clientY;
+                return;
+            }
+
+            if (buildingsMode) {
+                if (!buildingDragState.active || e.buttons === 0) {
+                    return;
+                }
+
+                const clientDx = e.clientX - buildingDragState.lastX;
+                const clientDy = e.clientY - buildingDragState.lastY;
+                const delta = clientDeltaToSvg(clientDx, clientDy);
+                const dx = delta.x;
+                const dy = delta.y;
+
+                if (dx !== 0 || dy !== 0) {
+                    buildingDragState.moved = true;
+                }
+
+                const b = buildings[buildingDragState.index];
+                if (!b) {
+                    return;
+                }
+
+                if (buildingDragState.mode === "move") {
+                    b.x += dx;
+                    b.z += dy;
+                } else if (buildingDragState.mode === "stretch") {
+                    b.width = Math.max(1, b.width + dx * 0.2);
+                    b.depth = Math.max(1, b.depth + dy * 0.2);
+                } else if (buildingDragState.mode === "rotate") {
+                    b.angle += clientDx * 0.01;
+                }
+
+                buildingDragState.lastX = e.clientX;
+                buildingDragState.lastY = e.clientY;
+                renderRoad();
+                return;
+            }
+
+            if (e.buttons === 0) {
+                return;
+            }
+
+            if (marqueeState.active) {
+                marqueeState.currentX = x;
+                marqueeState.currentY = y;
+
+                if (!marqueeState.moved) {
+                    const mdx = Math.abs(marqueeState.currentX - marqueeState.startX);
+                    const mdy = Math.abs(marqueeState.currentY - marqueeState.startY);
+                    marqueeState.moved = mdx >= MARQUEE_MIN_DRAG || mdy >= MARQUEE_MIN_DRAG;
+                }
+
+                updateMarqueeRect();
+                return;
+            }
+
+            if (!dragState.active) {
+                return;
+            }
+
+            const clientDx = e.clientX - dragState.lastX;
+            const clientDy = e.clientY - dragState.lastY;
+            const delta = clientDeltaToSvg(clientDx, clientDy);
+            const dx = delta.x;
+            const dy = delta.y;
 
             if (dx !== 0 || dy !== 0) {
                 dragState.moved = true;
@@ -258,35 +1059,113 @@ buildingsModeCheckbox.addEventListener("click", e => {
             for (const idx of dragState.indices) {
                 road[idx].ex += dx;
                 road[idx].ey += dy;
-
-                const world = pointToWorld(road[idx].ex, road[idx].ey);
-                road[idx].position.x = world.x;
-                road[idx].position.z = world.z;
+                updateRoadWorldAt(idx);
             }
 
-            dragState.lastX = x;
-            dragState.lastY = y;
+            dragState.lastX = e.clientX;
+            dragState.lastY = e.clientY;
 
             renderRoad();
         };
 
         svg.onmouseup = function (e) {
-            const x = e.clientX;
-            const y = e.clientY;
+            if (viewDragState.active) {
+                viewDragState.active = false;
+                return;
+            }
+
+            const p = eventToSvgPoint(e);
+            const x = p.x;
+            const y = p.y;
+
+            if (buildingsMode) {
+                if (buildingDragState.active) {
+                    buildingDragState.active = false;
+                    buildingDragState.index = -1;
+                    buildingDragState.mode = "none";
+                    return;
+                }
+
+                if (e.button === 0 && buildingClickState.startedOnEmpty) {
+                    if (buildingClickState.hadSelectionAtStart) {
+                        selectedBuildingIndex = -1;
+                        renderRoad();
+                    } else {
+                        addBuildingAt(x, y);
+                    }
+                }
+
+                buildingClickState.startedOnEmpty = false;
+                buildingClickState.hadSelectionAtStart = false;
+                return;
+            }
+
+            if (marqueeState.active) {
+                marqueeState.currentX = x;
+                marqueeState.currentY = y;
+
+                if (marqueeState.moved) {
+                    selectPointsInRect(
+                        marqueeState.startX,
+                        marqueeState.startY,
+                        marqueeState.currentX,
+                        marqueeState.currentY,
+                        marqueeState.additive
+                    );
+                    renderRoad();
+                } else if (!marqueeState.additive && marqueeState.startedOnEmpty && marqueeState.hadSelectionAtStart) {
+                    selectedIndices.clear();
+                    renderRoad();
+                } else if (e.button === 0 && !buildingsMode && !marqueeState.additive && findCandidates(x, y).length === 0) {
+                    const insertAt = findInsertSegmentIndex(x, y);
+                    if (insertAt >= 0) {
+                        addRoadBitAt(insertAt, x, y);
+                    } else {
+                        addRoadBit(x, y);
+                    }
+                }
+
+                marqueeState.active = false;
+                marqueeState.moved = false;
+                marqueeState.additive = false;
+                marqueeState.startedOnEmpty = false;
+                marqueeState.hadSelectionAtStart = false;
+                clearMarqueeRect();
+
+                dragState.active = false;
+                dragState.indices = [];
+                dragState.moved = false;
+                dragState.selectionOnly = false;
+                return;
+            }
+
             if (!buildingsMode) {
-	            if (!dragState.active && findCandidates(x, y).length === 0) {
-	                addRoadBit(x, y);
-	            }
+                if (!dragState.active && !dragState.selectionOnly && findCandidates(x, y).length === 0) {
+                    addRoadBit(x, y);
+                }
             }
 
             dragState.active = false;
             dragState.indices = [];
             dragState.moved = false;
+            dragState.selectionOnly = false;
         };
 
         window.addEventListener("resize", setupSvg);
+        svg.addEventListener("contextmenu", e => e.preventDefault());
+        svg.addEventListener("wheel", e => {
+            if (!isNothingSelected()) {
+                return;
+            }
+
+            e.preventDefault();
+            const p = eventToSvgPoint(e);
+            zoomViewAt(p.x, p.y, e.deltaY);
+        }, { passive: false });
 
         setupSvg();
+        
+        
     </script>
 </body>
 </html>

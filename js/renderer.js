@@ -49,13 +49,26 @@ export class Renderer {
         });
 
         const roadMesh = new THREE.Mesh(roadGeometry, roadMaterial);
+        this.roadEdgeLines = new THREE.LineSegments(
+            new THREE.WireframeGeometry(roadGeometry),
+            new THREE.LineBasicMaterial({ color: 0x00ffff })
+        );
+        this.roadEdgeLines.visible = false;
 
 
         this.scene.add(roadMesh);
+        this.scene.add(this.roadEdgeLines);
 
 
         const axisHelper = new THREE.AxesHelper(5);
         this.scene.add(axisHelper);
+    }
+
+    setRoadEdgeDebugVisible(visible) {
+        if (!this.roadEdgeLines) {
+            return;
+        }
+        this.roadEdgeLines.visible = !!visible;
     }
     
     render(car) {
@@ -74,7 +87,7 @@ export class Renderer {
                 break;
             case "top":
                 this.camera.position.x = car.position.x;
-                this.camera.position.y = 200;
+                this.camera.position.y = 250;
                 this.camera.position.z = car.position.z;
                 this.camera.lookAt(car.position.x, 0, car.position.z);
                 break;

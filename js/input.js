@@ -5,6 +5,7 @@ export class Input {
     this.throttle = false;
     this.brake = false;
     this.cameraView = "top";
+    this.debugRoadEdges = false;
 
     document.onkeydown = (e) => {
       // console.log(e);
@@ -37,6 +38,8 @@ export class Input {
         this.cameraView = "follow";
       } else if (e.code == "Digit3") {
         this.cameraView = "windscreen";
+      } else if (e.code == "Digit4") {
+        this.debugRoadEdges = !this.debugRoadEdges;
       }
     };
   }

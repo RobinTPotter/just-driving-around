@@ -62,12 +62,12 @@ export class Road {
       //console.log(t4, t5, t6);
 
       this.vertices.push(
-        t1.x,         t1.y,        t1.z,
-        t2.x,        t2.y,        t2.z,
-        t3.x,        t3.y,        t3.z,
-        t4.x,        t4.y,        t4.z,
-        t5.x,        t5.y,        t5.z,
-        t6.x,        t6.y,        t6.z,
+        t1.x, t1.y, t1.z,
+        t2.x, t2.y, t2.z,
+        t3.x, t3.y, t3.z,
+        t4.x, t4.y, t4.z,
+        t5.x, t5.y, t5.z,
+        t6.x, t6.y, t6.z,
       );
 
       if (!this.data.roadLooped && nn == this.data.nodes.length - 2) {
