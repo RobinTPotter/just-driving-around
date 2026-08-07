@@ -125,6 +125,8 @@
             index: -1,
             lastX: 0,
             lastY: 0,
+            startClientX: 0,
+            startClientY: 0,
         };
 
         const buildingClickState = {
@@ -154,6 +156,7 @@
 
         function setBuildingsMode(checked) {
             buildingsMode = checked;
+            buildingsModeCheckbox.checked = checked;
             console.log(buildingsMode);
         }
 
@@ -851,6 +854,13 @@
             e.stopPropagation();
         });
 
+        document.onkeyup = function (e) {
+            switch (e.code) {
+                case "Space": 
+                    setBuildingsMode(!buildingsMode); console.log(buildingsMode);
+                    break;
+            }
+        }
 
         svg.onmousedown = function (e) {
             const p = eventToSvgPoint(e);
@@ -878,29 +888,30 @@
                 buildingDragState.mode = "none";
                 buildingDragState.index = -1;
 
-                if (hit >= 0 && e.button !== 2) {
-                    if (selectedBuildingIndex !== hit) {
-                        selectedBuildingIndex = hit;
-                        renderRoad();
-                    }
-
-                    buildingDragState.active = true;
-                    buildingDragState.index = hit;
-                    buildingDragState.lastX = e.clientX;
-                    buildingDragState.lastY = e.clientY;
-
-                    if (e.button === 1) {
-                        buildingDragState.mode = "stretch";
-                    } else if (e.button === 2) {
-                        buildingDragState.mode = "rotate";
+                if (hit >= 0) {
+                    if (e.button === 2) {
+                        // Right-click rotates only the already-selected building.
+                        if (selectedBuildingIndex === hit) {
+                            buildingDragState.active = true;
+                            buildingDragState.index = hit;
+                            buildingDragState.mode = "rotate";
+                            buildingDragState.lastX = e.clientX;
+                            buildingDragState.lastY = e.clientY;
+                            buildingDragState.startClientX = e.clientX;
+                            buildingDragState.startClientY = e.clientY;
+                        }
                     } else {
-                        buildingDragState.mode = "move";
-                    }
-
-                    if (e.button === 2 && selectedBuildingIndex !== hit) {
-                        buildingDragState.active = false;
-                        buildingDragState.index = -1;
-                        buildingDragState.mode = "none";
+                        if (selectedBuildingIndex !== hit) {
+                            selectedBuildingIndex = hit;
+                            renderRoad();
+                        }
+                        buildingDragState.active = true;
+                        buildingDragState.index = hit;
+                        buildingDragState.lastX = e.clientX;
+                        buildingDragState.lastY = e.clientY;
+                        buildingDragState.startClientX = e.clientX;
+                        buildingDragState.startClientY = e.clientY;
+                        buildingDragState.mode = e.button === 1 ? "stretch" : "move";
                     }
                 }
 
@@ -993,20 +1004,29 @@
                     return;
                 }
 
+                if (!buildingDragState.moved) {
+                    const tdx = e.clientX - buildingDragState.startClientX;
+                    const tdy = e.clientY - buildingDragState.startClientY;
+                    if (tdx * tdx + tdy * tdy < 16) {
+                        buildingDragState.lastX = e.clientX;
+                        buildingDragState.lastY = e.clientY;
+                        return;
+                    }
+                    buildingDragState.moved = true;
+                }
+
                 const clientDx = e.clientX - buildingDragState.lastX;
                 const clientDy = e.clientY - buildingDragState.lastY;
                 const delta = clientDeltaToSvg(clientDx, clientDy);
                 const dx = delta.x;
                 const dy = delta.y;
 
-                if (dx !== 0 || dy !== 0) {
-                    buildingDragState.moved = true;
-                }
-
                 const b = buildings[buildingDragState.index];
                 if (!b) {
                     return;
                 }
+
+                console.log(buildingDragState.mode);
 
                 if (buildingDragState.mode === "move") {
                     b.x += dx;

@@ -83,11 +83,11 @@ export class Renderer {
                 this.camera.position.x = car.position.x - car.forward.x * 5;
                 this.camera.position.y = car.position.y + 2;
                 this.camera.position.z = car.position.z - car.forward.z * 5;
-                this.camera.lookAt(car.position.x, car.position.y, car.position.z);
+                this.camera.lookAt(car.position.x+Math.random()*0.01, car.position.y, car.position.z);
                 break;
             case "top":
                 this.camera.position.x = car.position.x;
-                this.camera.position.y = 250;
+                this.camera.position.y = 150;
                 this.camera.position.z = car.position.z;
                 this.camera.lookAt(car.position.x, 0, car.position.z);
                 break;

@@ -4,7 +4,7 @@ export class Input {
     this.right = false;
     this.throttle = false;
     this.brake = false;
-    this.cameraView = "top";
+    this.cameraView = "follow";
     this.debugRoadEdges = false;
 
     document.onkeydown = (e) => {

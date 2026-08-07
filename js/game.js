@@ -47,7 +47,7 @@ export class Game {
     this.car.update(dt, this.input);
     let q = this.road.query(this.car.segment,this.car.position.x,this.car.position.z);
     this.div1.innerHTML = this.car.velocity.toFixed(4);
-    this.div2.innerHTML = this.car.heading.toFixed(4);
+    this.div2.innerHTML = this.car.steering.toFixed(4);
     this.div3.innerHTML = JSON.stringify(q);
     this.renderer.cameraView = this.input.cameraView;
     this.renderer.setRoadEdgeDebugVisible(this.input.debugRoadEdges);

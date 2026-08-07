@@ -10,7 +10,7 @@ export class Car {
     this.width = 1.8;
     this.steering = 0;
     this.heading = Math.PI/2.0;
-    this.steeringMax = 4;
+    this.steeringMax = 2;
     this.steeringSpeed = 0.6;
     this.steeringRest = 0.8; //drag for steering
     this.DZ = 0.001;  // steering dead zone
